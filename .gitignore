@@ -1,0 +1,15 @@
+# The raw run outputs (2.8 GB) are distributed through Zenodo — see data/ablation/README.md
+# and scripts/fetch_zenodo_data.sh. Keep them, and the download area, out of git.
+data/ablation/*
+!data/ablation/README.md
+data/.zenodo/
+
+# Files produced by the analysis scripts
+analysis/pkg.pkl
+analysis/tables_regenerated.tex
+analysis/text_numbers_regenerated.txt
+analysis/final_revision_numbers.json
+
+__pycache__/
+*.pyc
+.DS_Store

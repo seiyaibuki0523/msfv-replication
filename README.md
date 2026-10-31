@@ -2,6 +2,26 @@
 
 Casper Chen (Cevanex, Taipei, Taiwan). Manuscript submitted to IEEE Access. Package version 1.0 (2026-09-11).
 
+> **GitHub mirror of the Zenodo replication package.** The article has since been published:
+> C. Chen, "Reducing Hallucinated False Positives in LLM-Based Vulnerability Detection via Multi-Signal Focused
+> Verification," *IEEE Access*, vol. 14, pp. 153128–153147, 2026, doi: [10.1109/ACCESS.2026.3739345](https://doi.org/10.1109/ACCESS.2026.3739345)
+> (published 2 October 2026; open access, CC BY 4.0; [IEEE Xplore](https://ieeexplore.ieee.org/document/11719504)).
+>
+> * Every file in this repository is byte-identical to the archived package `msfv-replication-package-v1.0.tar.gz`
+>   ([doi:10.5281/zenodo.22704663](https://doi.org/10.5281/zenodo.22704663), SHA-256
+>   `e948413aba7d7ad193a3170cd0d5792079c7cf578d3a08d6df67e9a1525fc3cc`), except this `README.md`, which carries
+>   this notice above the archived text. `sha256sum -c CHECKSUMS.sha256 --ignore-missing` therefore reports exactly
+>   one mismatch (`README.md`); the archived `README.md` is at tag `zenodo-v1.0`.
+> * **`data/ablation/` — the raw run outputs (132 run directories, 3,024 files, 2.8 GB) — is not committed to git.**
+>   `scripts/fetch_zenodo_data.sh` downloads it from Zenodo, verifies every part, the reassembled archive and the
+>   extracted files, and puts it where the scripts below expect it (see `data/ablation/README.md`).
+> * Package version 1.1 ([doi:10.5281/zenodo.23030516](https://doi.org/10.5281/zenodo.23030516), 2026-09-29) added
+>   `analysis/analysis_final_revision.py` and `README_v1.1.md`, which accompany the accepted article (Table 4 over the
+>   verification pool, F1 over all runs, alert-count terminology, random-removal reference); both are included.
+>   After `load.py`, run `python3 analysis_final_revision.py pkg.pkl` in `analysis/`.
+> * Tags `zenodo-v1.0` and `zenodo-v1.1` mark the trees exactly as archived; `main` adds only this notice,
+>   `scripts/fetch_zenodo_data.sh`, `data/ablation/README.md`, `.gitignore` and `CITATION.cff`.
+
 This package contains everything needed to (a) recompute every table in the article from the recorded
 per-finding outputs, (b) audit the adjudication study, and (c) re-run the pipeline itself.
 

@@ -1,0 +1,51 @@
+# Citation metadata for this repository (https://citation-file-format.github.io).
+# GitHub shows a "Cite this repository" button from it. Please cite the article (preferred-citation)
+# and, when you use the data, the Zenodo package.
+cff-version: 1.2.0
+message: "If you use this code or data, please cite the article below (preferred-citation) and the Zenodo package."
+type: software
+title: "Replication package for \"Reducing Hallucinated False Positives in LLM-Based Vulnerability Detection via Multi-Signal Focused Verification\""
+abstract: "Frozen pipeline code (detection layers 0-5, multi-signal verification, PoC generator/validator/sandbox, Semgrep rule packs), the launchers of every experiment, the 253-item adjudication study, and the scripts that regenerate every table of the article. The raw outputs of the 964 run configurations (data/ablation/, 2.8 GB) are distributed through the Zenodo record and fetched with scripts/fetch_zenodo_data.sh."
+authors:
+  - family-names: Chen
+    given-names: Casper
+    orcid: "https://orcid.org/0009-0002-8175-4236"
+    affiliation: "Cevanex, New Taipei City, Taiwan"
+version: "1.1"
+date-released: "2026-09-29"
+doi: 10.5281/zenodo.22704663
+license:
+  - MIT
+  - CC-BY-4.0
+repository-code: "https://github.com/seiyaibuki0523/msfv-replication"
+repository-artifact: "https://doi.org/10.5281/zenodo.22704663"
+keywords:
+  - vulnerability detection
+  - large language models
+  - false positive reduction
+  - software security
+  - replication package
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.22704663
+    description: "Zenodo, package version 1.0 (2026-09-11): the complete archive including data/ablation/"
+  - type: doi
+    value: 10.5281/zenodo.23030516
+    description: "Zenodo, package version 1.1 (2026-09-29): addendum (analysis/analysis_final_revision.py, README_v1.1.md)"
+preferred-citation:
+  type: article
+  authors:
+    - family-names: Chen
+      given-names: Casper
+      orcid: "https://orcid.org/0009-0002-8175-4236"
+      affiliation: "Cevanex, New Taipei City, Taiwan"
+  title: "Reducing Hallucinated False Positives in LLM-Based Vulnerability Detection via Multi-Signal Focused Verification"
+  journal: "IEEE Access"
+  volume: 14
+  start: 153128
+  end: 153147
+  month: 10
+  year: 2026
+  doi: 10.1109/ACCESS.2026.3739345
+  url: "https://ieeexplore.ieee.org/document/11719504"
+  license: CC-BY-4.0
