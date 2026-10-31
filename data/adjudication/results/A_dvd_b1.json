@@ -1,0 +1,298 @@
+[
+ {
+  "id": "dvd-0074",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "src/shards/ShardsFeeVault.sol:13,34-50",
+  "justification": "The code pattern is real (solady Ownable; `withdraw(receiver,unstake)` and `enableStaking` are onlyOwner and the owner can drain the whole vault), but this is the vault's documented design ('permissioned vault to deposit fees') and the claimed high-severity attack is entirely predicated on an out-of-band private-key compromise. That is a centralization/best-practice observation, not an exploitable flaw in this code."
+ },
+ {
+  "id": "dvd-0125",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "src/withdrawal/L1Gateway.sol:29-32,34-70",
+  "justification": "`setRoot` is indeed onlyOwner and an owner could install a forged Merkle root, but the attack requires compromising the owner key, and the analysis misstates the code (finalizeWithdrawal's signature is (nonce,l2Sender,target,timestamp,message,proof) and it performs a low-level call, it does not transfer funds). It is also not the documented weakness for this file (message replay / the OPERATOR_ROLE proof bypass at line 47-54, which needs no root manipulation at all)."
+ },
+ {
+  "id": "dvd-0054",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "medium",
+  "evidence": "src/climber/ClimberVault.sol:34-44,47-59, src/climber/ClimberTimelock.sol:30-39",
+  "justification": "`withdraw` is onlyOwner as flagged, but the central assertion that 'the owner is not constrained by a timelock, multisig, or governance mechanism' is wrong: initialize() transfers ownership to a freshly deployed ClimberTimelock (line 40) with a 1-hour delay and ADMIN/PROPOSER role separation, so no single EOA key can call withdraw directly; the recommendation even contradicts itself on this point. What remains is a centralization observation, and the withdrawal is additionally capped at WITHDRAWAL_LIMIT per WAITING_PERIOD."
+ },
+ {
+  "id": "dvd-0045",
+  "label": "FALSE",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "src/climber/ClimberVault.sol:29-44,83",
+  "justification": "The asserted attack window does not exist: `__Ownable_init(msg.sender)` and `transferOwnership(new ClimberTimelock(...))` execute in the same atomic transaction, so no attacker can interleave a call between them, and if the timelock deployment reverted the whole initialize would revert. `_authorizeUpgrade` is an internal function and is not externally callable, and the constructor already calls `_disableInitializers()` (line 31), so the implementation cannot be initialized either."
+ },
+ {
+  "id": "dvd-0087",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "src/shards/ShardsNFTMarketplace.sol:200-216, src/DamnValuableToken.sol:7",
+  "justification": "The claim's core factual premise is inverted: `offers[offerId].isOpen = false` is written at line 213, BEFORE the paymentToken.transfer at line 215, not after. paymentToken is a plain solmate ERC20 (DamnValuableToken) with no transfer hooks, so the transfer to the seller cannot re-enter at all; the described duplicate-minting loop is impossible."
+ },
+ {
+  "id": "dvd-0055",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "medium",
+  "evidence": "src/curvy-puppet/CurvyPuppetOracle.sol:24-37",
+  "justification": "setPrice is genuinely onlyOwner, so this is a real centralization observation, but the claimed exploit requires owner-key compromise and the specific abuse described is impossible: `value == 0` reverts with InvalidPrice and `expiration <= block.timestamp` reverts with InvalidExpiration (lines 34-35). The named downstream consumers (ClimberVault, ShardsFeeVault) do not use this oracle at all; only CurvyPuppetLending does."
+ },
+ {
+  "id": "dvd-0057",
+  "label": "FALSE",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "src/curvy-puppet/IStableSwap.sol:5-70",
+  "justification": "This file is a pure Solidity interface for the external (mainnet-fork) Curve pool - only function/event declarations, no implementation, no state, and no access control that this codebase controls or could change. The claim that these admin functions have 'no time lock' is also contradicted by the very declarations cited (commit_transfer_ownership/apply_transfer_ownership, commit_new_fee/apply_new_fee, admin_actions_deadline, transfer_ownership_deadline are Curve's commit-then-apply delay pattern)."
+ },
+ {
+  "id": "dvd-0079",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "src/curvy-puppet/CurvyPuppetLending.sol:35-41,61-83",
+  "justification": "The described attack cannot occur: `borrowAsset` is immutable and fixed at construction to curvePool.lp_token() (line 36), so an attacker cannot supply a malicious hooking token, and the code already follows checks-effects-interactions - borrowAmount is incremented at line 81 before the transfer at line 82, so any re-entrant borrow would read the updated debt and fail the solvency check at line 78. The analysis itself concedes it needs 'calldata or memory tricks' to read a pre-update storage value, which is not a real mechanism."
+ },
+ {
+  "id": "dvd-0076",
+  "label": "FALSE",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "src/shards/ShardsFeeVault.sol:34-44, src/DamnValuableToken.sol:7, src/DamnValuableStaking.sol:70-82",
+  "justification": "No re-entrancy path exists: `withdraw` is onlyOwner (line 34), so the 'malicious staker' of the scenario cannot re-enter it, and token is DamnValuableToken, a plain solmate ERC20 with no transfer hooks, so `token.transfer(receiver, ...)` at line 43 hands no control to the receiver. The accounting is also exact - unstakedAmount + rewards + stakedAmount equals the balance the vault actually holds after claim()/staking.withdraw()."
+ },
+ {
+  "id": "dvd-0145",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "src/selfie/SelfiePool.sol:50-69",
+  "justification": "The transferFrom does use `_receiver` rather than msg.sender, but the described theft is prevented by the surrounding flow: the pool first sends the same `_amount` to that address (line 59) and the call reverts unless `_receiver.onFlashLoan(...)` returns the ERC-3156 magic value (lines 60-62), so an arbitrary victim address cannot be targeted and the net token flow for a cooperating receiver is zero. The real documented weakness here is the governance flash-loan snapshot abuse, not this line."
+ },
+ {
+  "id": "dvd-0104",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "medium",
+  "evidence": "src/withdrawal/L1Forwarder.sol:10,33-35,46-50",
+  "justification": "L1Forwarder is Ownable and `setL2Handler` is onlyOwner, so the centralization pattern exists, but the impact story misdescribes the code: l2Handler is never called into - it is only compared against gateway.xSender() in the gate at line 46 - and successfulMessages/failedMessages cannot be written by an external party. The attack also presupposes owner-key compromise, i.e. a best-practice/centralization matter rather than a code flaw."
+ },
+ {
+  "id": "dvd-0230",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "src/curvy-puppet/CurvyPuppetLending.sol:129-131",
+  "justification": "`_pullAssets` hardcodes `from: msg.sender`, so no caller can name a victim as the source; Permit2's transferFrom pulls from the `from` address supplied here, which is always the caller. The analysis itself repeatedly concedes this ('the current code hardcodes from: msg.sender, so direct exploitation requires...'), and the private function is only reachable from deposit/redeem/liquidate, all of which pass msg.sender's own assets."
+ },
+ {
+  "id": "dvd-0185",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "src/withdrawal/L1Gateway.sol:8-10,29-32,41-54",
+  "justification": "Same centralization pattern as the other L1Gateway finding: setRoot is onlyOwner and a compromised owner could install a forged root, but that presupposes key theft. The analysis also guesses at code it did not read (finalizeWithdrawal is permissionless, not 'implied to be privileged') and misses the actual documented weakness in this file - an OPERATOR_ROLE holder skips Merkle verification entirely at lines 47-54."
+ },
+ {
+  "id": "dvd-0039",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "src/the-rewarder/TheRewarderDistributor.sol:81-118",
+  "justification": "`inputClaims` is a caller-supplied memory/calldata array, not a storage array that grows over time, so there is no persistent DoS: a caller who passes too many claims only runs their own transaction out of gas and can retry with fewer, and one user's array size has no effect on any other user's claim. At most this is an informational 'no batch-size cap' note; the claimed permanent lock-out of legitimate claimers does not exist."
+ },
+ {
+  "id": "dvd-0025",
+  "label": "FALSE",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "src/shards/ShardsFeeVault.sol:17-25",
+  "justification": "The claim's premise is directly contradicted by the code: the constructor does call `_disableInitializers()` (line 19) and additionally sets the implementation owner to 0xdeadbeef, so `initialize` reverts on the implementation contract and the described hijack of the logic contract is impossible."
+ },
+ {
+  "id": "dvd-0038",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "src/side-entrance/SideEntranceLenderPool.sol:26-33,35-43",
+  "justification": "The named mechanism (missing access control letting anyone drain another user's ETH) does not exist: `withdraw` only pays out balances[msg.sender], deletes it before the transfer (CEI), and there is no owner concept - the recommended `onlyOwner` fix would break the contract. The analysis explicitly concedes it is 'not exploitable as written' and never describes the file's actual weakness (calling deposit() with the borrowed ETH inside the flashLoan callback so the balance check passes while the attacker's credit balance grows)."
+ },
+ {
+  "id": "dvd-0093",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "medium",
+  "evidence": "src/truster/TrusterLenderPool.sol:20-35, src/DamnValuableToken.sol:7",
+  "justification": "The claimed re-entrancy is blocked: flashLoan carries OZ `nonReentrant` (line 22) so a re-entrant flashLoan reverts, the pool has no other state-changing function, and token is an immutable plain solmate ERC20 with no callbacks. The real weakness at this line is that `target.functionCall(data)` is executed with the pool as msg.sender (so data can be token.approve(attacker, balance) and the tokens are pulled afterwards) - the analysis never describes that, treating the call only as 'arbitrary code in the malicious contract'."
+ },
+ {
+  "id": "dvd-0048",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "medium",
+  "evidence": "src/climber/ClimberVault.sol:40,47,62,83, src/climber/ClimberTimelock.sol:30-39",
+  "justification": "`_authorizeUpgrade` is indeed onlyOwner, but several load-bearing assertions are wrong: the timelock constructor does set `delay = 1 hours` (ClimberTimelock.sol:38) and takes two addresses, `_authorizeUpgrade` is internal and not callable by an attacker, and sweepFunds is onlySweeper rather than onlyOwner. What is left is the generic centralization observation that the timelock's ADMIN/PROPOSER roles can eventually schedule an upgrade, contingent on key compromise."
+ },
+ {
+  "id": "dvd-0106",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "medium",
+  "evidence": "src/wallet-mining/TransparentProxy.sol:12-22, src/wallet-mining/AuthorizerUpgradeable.sol:5-7",
+  "justification": "TransparentProxy does inherit ERC1967Proxy with no __gap, but the impact is speculative and does not apply here: OZ v5's ERC1967Proxy keeps implementation/admin in ERC-1967 hashed slots and declares no sequential state, so no present or plausible base upgrade collides. The genuine storage-collision issue in this file is a different one the analysis does not describe: the proxy's `upgrader` at slot 0 aliases the implementation's `needsInit` at slot 0 (AuthorizerUpgradeable.sol:6), so setUpgrader un-freezes init()."
+ },
+ {
+  "id": "dvd-0058",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "medium",
+  "evidence": "src/climber/ClimberVault.sol:5-7,18-20",
+  "justification": "ClimberVault declares no __gap, but the claimed collision cannot happen with the OZ v5 upgradeable bases actually imported here (Initializable/OwnableUpgradeable/UUPSUpgradeable use ERC-7201 namespaced storage, not sequential slots), and no contract inherits from ClimberVault. The 'attack scenario' is a hypothetical future developer writing an incompatible implementation, not an attacker-controlled path - an informational upgrade-safety note at most."
+ },
+ {
+  "id": "dvd-0134",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "medium",
+  "evidence": "src/the-rewarder/TheRewarderDistributor.sol:87-118,120-129",
+  "justification": "Despite the reentrancy rule id, the analysis correctly describes the real defect: the per-claim `transfer` at line 116 runs every iteration while `_setClaimed` is only called at a token switch or on the final iteration, and re-OR-ing an already-set bit (line 102) is a no-op, so passing the same (token,batchNumber,amount,proof) N times yields N transfers but a single bitmap write - the intended over-claim exploit of the-rewarder. Minor inaccuracy: the proof is in fact re-verified each iteration, which does not prevent the attack since the same valid proof is replayed."
+ },
+ {
+  "id": "dvd-0001",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "src/compromised/TrustfulOracle.sol:40-53",
+  "justification": "The arrays are caller-supplied calldata, not storage, and `setupInitialPrices` is gated by `onlyRole(INITIALIZER_ROLE)` and renounces that role at the end, so the 'attacker calls it with 500 entries' scenario is impossible; the only party who can call it is the deployer, once, and they choose the array size. Per-iteration cost is also one SSTORE plus an event, nowhere near the claimed 80-100k gas, so no funds can be frozen this way."
+ },
+ {
+  "id": "dvd-0022",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "high",
+  "evidence": "src/puppet-v2/PuppetV2Pool.sol:35-48,50-61",
+  "justification": "This is the puppet-v2 vulnerability as documented: `_getOracleQuote` reads instantaneous Uniswap V2 reserves via getReserves and `calculateDepositOfWETHRequired` uses that spot quote as the sole collateral valuation for `borrow`, so dumping tokens into the pair collapses the required WETH deposit and lets an attacker drain the pool's token balance. Only nit: the stated swap direction is inverted, but the end state it describes (reservesToken up, reservesWETH down) is the correct manipulation."
+ },
+ {
+  "id": "dvd-0084",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": false,
+  "confidence": "medium",
+  "evidence": "src/shards/ShardsNFTMarketplace.sol:116-139,200-216, test/shards/Shards.t.sol:29",
+  "justification": "`fill` pushes an unbounded Purchase entry per call into storage (line 126) and `_closeOffer` linearly iterates that array performing an ERC1155 _mint per entry, so once the array is large enough the closing `fill` always runs out of gas, leaving isOpen true forever - the NFT is unrecoverable (redeem reverts with StillOpen) and buyers' payments are stuck. It is cheap to mount here: totalShards is 1e25 in the deployed offer and a 1-shard fill costs zero payment tokens because of the mulDivDown rounding, so an attacker only pays gas to bloat the array. Distinct from the documented rounding bug."
+ },
+ {
+  "id": "dvd-0089",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "medium",
+  "evidence": "src/unstoppable/UnstoppableMonitor.sol:23-53, src/unstoppable/UnstoppableVault.sol:124-133",
+  "justification": "The code is as flagged (checkFlashLoan is onlyOwner and its catch branch pauses the vault and transfers vault ownership to the monitor's owner), but that is the intended incident-response design and the 'attack' presupposes owner-key compromise, i.e. a centralization observation. The stated mechanism for forcing the catch branch is also wrong: onFlashLoan is fixed monitor code the owner cannot alter (the real trigger is donating tokens to break the ERC4626 invariant at UnstoppableVault.sol:85)."
+ },
+ {
+  "id": "dvd-0096",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "src/unstoppable/UnstoppableVault.sol:56-66,99-101,116-121",
+  "justification": "setFeeRecipient is onlyOwner and does redirect the flash-loan fee, so the pattern is real, but the only consequence is future fee revenue and it requires owner-key compromise - principal is untouched. In the deployed configuration flashFee even returns 0 for the whole 30-day grace period (lines 61-62), so there is no fee stream to divert; this is a centralization note, not the documented DoS weakness of this file."
+ },
+ {
+  "id": "dvd-0016",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "medium",
+  "evidence": "src/climber/ClimberTimelock.sol:41-49,72-99, src/climber/ClimberConstants.sol:15-16",
+  "justification": "The arrays are calldata supplied per call, and `schedule` already bounds them (targets.length must be >0 and <MAX_TARGETS=256), so the 'no upper bound' premise is wrong and 255 trivial calls do not exceed the block gas limit. Any oversized batch is self-inflicted by the PROPOSER_ROLE holder, no funds are attached to an operation (execute is payable from the caller), and the file's actual documented flaw is that execute performs the calls before checking the operation state (lines 90-96)."
+ },
+ {
+  "id": "dvd-0060",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "medium",
+  "evidence": "src/curvy-puppet/CurvyPuppetLending.sol:116-119, src/curvy-puppet/CurvyPuppetOracle.sol:24-37",
+  "justification": "getCollateralValue does read a single oracle with no fallback, but the exploit described requires being the oracle owner (setPrice is onlyOwner), and the borrow branch is stated backwards - a lower collateral price shrinks maxBorrowValue rather than inflating it. The oracle also rejects zero values and expirations in the past/beyond 2 days. The documented oracle_manipulation for this file is the LP-price path (get_virtual_price at line 134), not the collateral feed."
+ },
+ {
+  "id": "dvd-0148",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "medium",
+  "evidence": "src/naive-receiver/NaiveReceiverPool.sol:43-64, src/naive-receiver/FlashLoanReceiver.sol:15-40",
+  "justification": "Correctly identifies the naive-receiver flaw: flashLoan never checks that the caller is the receiver and pulls amount+FIXED_FEE from the caller-chosen `receiver` (line 58), so anyone can force loans on FlashLoanReceiver - which approves the pool inside its callback - and drain its 10 WETH one 1-WETH fee at a time; the prescribed fix (require receiver == msg.sender) is the right one. The write-up garbles who ends up holding the funds (they go to the pool, credited to feeReceiver's deposits), but the defect and its exploitability are as stated."
+ },
+ {
+  "id": "dvd-0100",
+  "label": "FALSE",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "src/wallet-mining/AuthorizerUpgradeable.sol:5-13",
+  "justification": "The flagged pattern is not present: AuthorizerUpgradeable inherits from no base contract at all (it is not Initializable/UUPSUpgradeable), so there is no parent whose future state variables could consume slots, and a storage gap would be irrelevant. The scenario described is a hypothetical future implementation authored by whoever already holds the upgrader role, which is not a weakness of this contract."
+ },
+ {
+  "id": "dvd-0072",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "medium",
+  "evidence": "src/curvy-puppet/CurvyPuppetLending.sol:133-135, src/curvy-puppet/CurvyPuppetOracle.sol:33-37",
+  "justification": "The line does derive the LP price from one oracle with no fallback, but the claimed abuse is owner-only (setPrice is onlyOwner, rejects zero values and expirations more than 2 days out), so it is a trust/centralization observation rather than an exploitable flaw. It also misses the actual documented manipulation vector at this very line - `curvePool.get_virtual_price()`, which is inflatable through read-only reentrancy during Curve remove_liquidity - and even recommends treating the Curve pool as a trustworthy second source."
+ },
+ {
+  "id": "dvd-0019",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "src/curvy-puppet/CurvyPuppetLending.sol:48-59",
+  "justification": "`withdraw` operates exclusively on positions[msg.sender] and transfers to msg.sender, so no caller can touch another user's collateral; there is no proxy/delegatecall path into this contract and `positions[msg.sender].collateralAmount - amount` reverts on underflow under 0.8.25. The suggested 'positions[msg.sender].owner' check is meaningless since the mapping is already keyed by the caller. The analysis concedes mid-argument that direct exploitation is impossible."
+ },
+ {
+  "id": "dvd-0032",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "src/puppet-v2/UniswapV2Library.sol:97-110, src/puppet-v2/PuppetV2Pool.sol:56-61",
+  "justification": "getAmountsIn is an `internal` function of a vendored copy of Uniswap's own library and has no caller anywhere in src/ or test/ (PuppetV2Pool uses getReserves+quote instead), so the asserted data flow into a valuation/collateral decision does not exist at this location. Computing swap amounts from current reserves is also the intended semantics of a router helper, guarded by slippage bounds at the call site, not an oracle misuse."
+ },
+ {
+  "id": "dvd-0071",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "src/shards/ShardsFeeVault.sol:9-13,34-50",
+  "justification": "Same centralization pattern as the other ShardsFeeVault finding - real onlyOwner control over withdraw/enableStaking, but predicated on key compromise. The stated invariant is wrong for this contract: the vault keeps no per-user balances, it is by design a permissioned sink for marketplace fees, so there are no 'user deposits' the owner is bypassing."
+ },
+ {
+  "id": "dvd-0034",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "medium",
+  "evidence": "src/naive-receiver/NaiveReceiverPool.sol:66-73,86-92",
+  "justification": "The claim's stated mechanism does not work: `deposits[_msgSender()] -= amount` reverts on underflow under 0.8.25, so an ordinary caller can only move their own credited balance, and the analysis's proposed vectors (proxy, flash-loan callback reentrancy) do not exist here. A genuine authorization flaw does live in this function, but through the trusted-forwarder `_msgSender()` override at lines 86-92 (spoofable via Multicall's delegatecall so an attacker debits feeReceiver's deposits) - a vector the report never identifies."
+ },
+ {
+  "id": "dvd-0099",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "medium",
+  "evidence": "src/unstoppable/UnstoppableVault.sol:12-16,124-127,130-133",
+  "justification": "The function is exactly as described - an owner-only arbitrary delegatecall while paused - but it is documented contract behaviour ('An owner can pause the contract and execute arbitrary changes') and the scenario only bites after owner-key compromise, i.e. centralization risk. The concrete example given is also technically wrong: delegatecalling DVT's transfer executes against the vault's own storage and moves no tokens."
+ },
+ {
+  "id": "dvd-0075",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "src/curvy-puppet/CurvyPuppetLending.sol:85-95",
+  "justification": "The ordering asserted by the claim is inverted: `positions[msg.sender].collateralAmount = 0` is written at line 92, before the transfer at line 93, so checks-effects-interactions is already respected. `redeem` also carries `nonReentrant`, as do withdraw/deposit/liquidate, so the described cross-function re-entry into any of them reverts, and the collateral asset is a fixed ERC20 with no callback."
+ }
+]

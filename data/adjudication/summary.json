@@ -1,0 +1,284 @@
+{
+ "rows": [
+  {
+   "bench": "dvd",
+   "stratum": "shipped",
+   "n": 34,
+   "pool": 34,
+   "A_true": 0.11764705882352941,
+   "A_over": 0.6470588235294118,
+   "A_false": 0.23529411764705882,
+   "A_unsure": 0.0,
+   "B_true": 0.14705882352941177,
+   "B_over": 0.7352941176470589,
+   "B_false": 0.11764705882352941,
+   "B_unsure": 0.0,
+   "agree_n": 29,
+   "C_true": 0.11764705882352941,
+   "C_over": 0.6176470588235294,
+   "C_false": 0.11764705882352941,
+   "C_disagree": 0.1470588235294118,
+   "label_tp": 0.08823529411764706
+  },
+  {
+   "bench": "dvd",
+   "stratum": "withheld",
+   "n": 40,
+   "pool": 70,
+   "A_true": 0.125,
+   "A_over": 0.425,
+   "A_false": 0.45,
+   "A_unsure": 0.0,
+   "B_true": 0.125,
+   "B_over": 0.55,
+   "B_false": 0.325,
+   "B_unsure": 0.0,
+   "agree_n": 28,
+   "C_true": 0.075,
+   "C_over": 0.375,
+   "C_false": 0.25,
+   "C_disagree": 0.30000000000000004,
+   "label_tp": 0.075
+  },
+  {
+   "bench": "pygoat",
+   "stratum": "shipped",
+   "n": 40,
+   "pool": 56,
+   "A_true": 0.7,
+   "A_over": 0.2,
+   "A_false": 0.1,
+   "A_unsure": 0.0,
+   "B_true": 0.8,
+   "B_over": 0.175,
+   "B_false": 0.025,
+   "B_unsure": 0.0,
+   "agree_n": 31,
+   "C_true": 0.7,
+   "C_over": 0.075,
+   "C_false": 0.0,
+   "C_disagree": 0.22499999999999998,
+   "label_tp": 0.2
+  },
+  {
+   "bench": "pygoat",
+   "stratum": "withheld",
+   "n": 40,
+   "pool": 50,
+   "A_true": 0.65,
+   "A_over": 0.25,
+   "A_false": 0.1,
+   "A_unsure": 0.0,
+   "B_true": 0.6,
+   "B_over": 0.375,
+   "B_false": 0.025,
+   "B_unsure": 0.0,
+   "agree_n": 35,
+   "C_true": 0.6,
+   "C_over": 0.25,
+   "C_false": 0.025,
+   "C_disagree": 0.125,
+   "label_tp": 0.275
+  },
+  {
+   "bench": "nodegoat",
+   "stratum": "shipped",
+   "n": 6,
+   "pool": 6,
+   "A_true": 1.0,
+   "A_over": 0.0,
+   "A_false": 0.0,
+   "A_unsure": 0.0,
+   "B_true": 0.8333333333333334,
+   "B_over": 0.16666666666666666,
+   "B_false": 0.0,
+   "B_unsure": 0.0,
+   "agree_n": 5,
+   "C_true": 0.8333333333333334,
+   "C_over": 0.0,
+   "C_false": 0.0,
+   "C_disagree": 0.16666666666666663,
+   "label_tp": 0.8333333333333334
+  },
+  {
+   "bench": "nodegoat",
+   "stratum": "withheld",
+   "n": 13,
+   "pool": 13,
+   "A_true": 0.8461538461538461,
+   "A_over": 0.15384615384615385,
+   "A_false": 0.0,
+   "A_unsure": 0.0,
+   "B_true": 0.8461538461538461,
+   "B_over": 0.15384615384615385,
+   "B_false": 0.0,
+   "B_unsure": 0.0,
+   "agree_n": 13,
+   "C_true": 0.8461538461538461,
+   "C_over": 0.15384615384615385,
+   "C_false": 0.0,
+   "C_disagree": 0.0,
+   "label_tp": 0.6153846153846154
+  },
+  {
+   "bench": "smartbugs",
+   "stratum": "shipped",
+   "n": 40,
+   "pool": 154,
+   "A_true": 0.2,
+   "A_over": 0.55,
+   "A_false": 0.25,
+   "A_unsure": 0.0,
+   "B_true": 0.2,
+   "B_over": 0.5,
+   "B_false": 0.3,
+   "B_unsure": 0.0,
+   "agree_n": 32,
+   "C_true": 0.175,
+   "C_over": 0.425,
+   "C_false": 0.2,
+   "C_disagree": 0.19999999999999996,
+   "label_tp": 0.075
+  },
+  {
+   "bench": "smartbugs",
+   "stratum": "withheld",
+   "n": 40,
+   "pool": 199,
+   "A_true": 0.05,
+   "A_over": 0.625,
+   "A_false": 0.325,
+   "A_unsure": 0.0,
+   "B_true": 0.075,
+   "B_over": 0.4,
+   "B_false": 0.525,
+   "B_unsure": 0.0,
+   "agree_n": 29,
+   "C_true": 0.05,
+   "C_over": 0.375,
+   "C_false": 0.3,
+   "C_disagree": 0.275,
+   "label_tp": 0.125
+  }
+ ],
+ "kappa": {
+  "k5": 0.6991875288988705,
+  "po5": 0.7865612648221344,
+  "k3": 0.687025493002159,
+  "po3": 0.7984189723320159,
+  "kb": 0.8716127067898102,
+  "pob": 0.9407114624505929,
+  "kf": 0.5442283708254423,
+  "pof": 0.8458498023715415
+ },
+ "n": 253,
+ "selectivity": {
+  "A": {
+   "dvd": {
+    "TRUE": 0.6862745098039216,
+    "OVERSTATED": 0.5748792270531401,
+    "FALSE": 0.7974683544303798
+   },
+   "pygoat": {
+    "TRUE": 0.4532775453277546,
+    "OVERSTATED": 0.5274261603375526,
+    "FALSE": 0.4716981132075472
+   },
+   "nodegoat": {
+    "TRUE": 0.6470588235294118,
+    "OVERSTATED": 1.0,
+    "FALSE": NaN
+   },
+   "smartbugs": {
+    "TRUE": 0.24417177914110424,
+    "OVERSTATED": 0.5948822192992946,
+    "FALSE": 0.6268475890477347
+   },
+   "all": {
+    "TRUE": 0.43741209563994404,
+    "OVERSTATED": 0.5885175813628826,
+    "FALSE": 0.6600880769858101
+   }
+  },
+  "B": {
+   "dvd": {
+    "TRUE": 0.6363636363636364,
+    "OVERSTATED": 0.6062992125984252,
+    "FALSE": 0.8504672897196262
+   },
+   "pygoat": {
+    "TRUE": 0.40106951871657764,
+    "OVERSTATED": 0.6567425569176882,
+    "FALSE": 0.4716981132075472
+   },
+   "nodegoat": {
+    "TRUE": 0.6875,
+    "OVERSTATED": 0.6666666666666666,
+    "FALSE": NaN
+   },
+   "smartbugs": {
+    "TRUE": 0.3264078731547293,
+    "OVERSTATED": 0.5083014048531292,
+    "FALSE": 0.6933797909407666
+   },
+   "all": {
+    "TRUE": 0.4303776409915158,
+    "OVERSTATED": 0.5517583945956686,
+    "FALSE": 0.7134527280299876
+   }
+  },
+  "C": {
+   "dvd": {
+    "TRUE": 0.5675675675675675,
+    "OVERSTATED": 0.5555555555555556,
+    "FALSE": 0.813953488372093
+   },
+   "pygoat": {
+    "TRUE": 0.4335260115606937,
+    "OVERSTATED": 0.7485029940119761,
+    "FALSE": 1.0
+   },
+   "nodegoat": {
+    "TRUE": 0.6875,
+    "OVERSTATED": 1.0,
+    "FALSE": NaN
+   },
+   "smartbugs": {
+    "TRUE": 0.2696476964769647,
+    "OVERSTATED": 0.5327503123326792,
+    "FALSE": 0.6596685082872931
+   },
+   "all": {
+    "TRUE": 0.42786448420251266,
+    "OVERSTATED": 0.5600048537798813,
+    "FALSE": 0.6927152317880798
+   }
+  }
+ },
+ "composition": {
+  "dvd": {
+   "TRUE": 0.12740384615384615,
+   "OVERSTATED": 0.5540865384615384,
+   "FALSE": 0.31850961538461536,
+   "N": 104.0
+  },
+  "pygoat": {
+   "TRUE": 0.691037735849057,
+   "OVERSTATED": 0.24646226415094347,
+   "FALSE": 0.06250000000000001,
+   "N": 105.99999999999997
+  },
+  "nodegoat": {
+   "TRUE": 0.868421052631579,
+   "OVERSTATED": 0.13157894736842105,
+   "FALSE": 0.0,
+   "N": 19.0
+  },
+  "smartbugs": {
+   "TRUE": 0.1224858356940509,
+   "OVERSTATED": 0.5179532577903684,
+   "FALSE": 0.3595609065155802,
+   "N": 353.0000000000002
+  }
+ }
+}

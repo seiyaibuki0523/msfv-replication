@@ -1,0 +1,4153 @@
+[
+ {
+  "id": "dvd-0016",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The execute function lacks an upper bound on targets.length, allowing a large array to cause excessive gas consumption or infinite loop via uint8 overflow, leading to a denial-of-service that locks op"
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": true
+ },
+ {
+  "id": "dvd-0039",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function loops over user‑provided inputClaims array without a length limit, enabling an attacker to exhaust gas and cause a denial‑of‑service."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0008",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The withdraw function can be invoked via selfdestruct or delegatecall, bypassing the onlyThis modifier."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "abi-smuggling"
+  ],
+  "poc_compile": true,
+  "poc_trig": true
+ },
+ {
+  "id": "dvd-0010",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function returns raw Uniswap V2 reserves that can be manipulated via flash loans, making any direct pricing or valuation usage vulnerable."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0081",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The owner can set a malicious staking contract that passes the token() check and then approve unlimited token allowances, enabling fund drain if the owner key is compromised."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0058",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The initialize function can be called by anyone before initialization, allowing an attacker to set admin and seize ownership."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0025",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Missing _disableInitializers in constructor allows reinitialization of the implementation, letting an attacker overwrite token and owner."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": true
+ },
+ {
+  "id": "dvd-0060",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function uses the oracle price directly without any validation, so a compromised or stale oracle price can corrupt collateral valuation."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0080",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function decrements totalDeposits before the external call without a reentrancy guard, allowing a malicious receiver to re-enter and manipulate the state."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0044",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The owner can add any address as beneficiary, enabling theft if the owner key is compromised."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "backdoor"
+  ],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0020",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The _closeOffer function loops over purchases[offerId] without bounds, allowing an attacker to exhaust gas by adding many purchases via repeated fill calls, causing denial of service."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0002",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "PoC exploit confirmed that ownership transfer to timelock locks out original owner from withdraw."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": true
+ },
+ {
+  "id": "dvd-0006",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function iterates over a user‑supplied bytes[] with no length limit, allowing an attacker to exhaust gas and cause a denial‑of‑service."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0102",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Owner can set l2Handler to any address, enabling theft if owner key is compromised."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0054",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Owner can withdraw up to WITHDRAWAL_LIMIT each WAITING_PERIOD, enabling theft if the owner key is compromised."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0117",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Owner can set arbitrary Merkle root, allowing fraudulent withdrawals if owner key is compromised."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0030",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The init function loops over _wards without bound, allowing a large array to exceed block gas limit and permanently block contract initialization."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": true
+ },
+ {
+  "id": "dvd-0072",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function uses a single oracle price without staleness check, allowing manipulation or stale prices to affect borrowing."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0099",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Owner can delegatecall arbitrary contracts, enabling asset theft if owner key is compromised."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0037",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "A malicious token contract that reverts on transfer can cause the entire clean loop to revert, blocking recovery of other tokens."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0129",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function uses msg.sender instead of the sender parameter for reward updates, allowing an approved spender to steal rewards."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0134",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function permits duplicate claims for the same batch within a single transaction, allowing multiple transfers while state is updated only once."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0070",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The withdraw function reads borrowAmount before an external ERC20 transfer; a malicious token transfer hook could reenter borrow/redeem to update borrowAmount, making the health check stale and allowi"
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0022",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function uses Uniswap V2 spot price directly, which is manipulable via flash loans, allowing an attacker to reduce required collateral."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "puppet-v2"
+  ],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0038",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "PoC confirms that external callers can withdraw funds without authorization."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": true
+ },
+ {
+  "id": "dvd-0032",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function uses spot reserves from Uniswap V2 pools, which can be manipulated via flash loans, allowing an attacker to skew the calculated input amounts."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0004",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "[[ ## verdict_json ## ]]\n{\"verdict\": \"confirmed\", \"severity\": \"critical\", \"reason\": \"The initialize function lacks constructor _disableInitializers, allowing direct reinitialization of the implementat"
+  ],
+  "severity_override": null,
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": true
+ },
+ {
+  "id": "dvd-0042",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The claim function lacks reentrancy protection; a malicious token can re-enter via stake/withdraw to reset rewards before transfer, allowing theft."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0024",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Unbounded loop over caller-supplied tokens array can exceed block gas limit, causing denial of service."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0007",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function loops over caller-provided ids array without bound, performing costly storage writes; a large array can exceed block gas limit, causing transaction to revert and prevent initialization."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0014",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Unbounded loop over user-controlled tokenIds array allows an attacker to exhaust gas and permanently DoS the buyMany function."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0066",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Owner can set arbitrary non-zero price with up to 2-day future expiration, allowing price feed manipulation if owner key is compromised."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0045",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The deployer retains ownership temporarily after __Ownable_init, enabling control if key compromised before timelock transfer."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0073",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The onlyOwner withdraw function can transfer the entire token balance, claimed rewards, and staked amount to an arbitrary receiver, allowing fund drainage."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0107",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "Remaining is set before the external transfer, blocking re‑entry for the same token, and the contract lacks a fallback/receive to accept ERC777 callbacks."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0076",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The withdraw function is restricted to the owner via onlyOwner, preventing external reentrancy that could exploit stale reward state."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0084",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "The purchases array length is bounded by offer stock; an attacker must spend funds proportional to the array size, making a gas‑limit DoS costly and unlikely."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0001",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "Loop lacks upper bound but callable only by privileged initializer role, reducing practical exploitability."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0015",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The withdraw function includes the onlyOwner modifier, providing proper access control."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0095",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "Missing storage gap may cause layout collisions in future upgrades, but no immediate exploit."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0074",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 6 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0106",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 16 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": true
+ },
+ {
+  "id": "dvd-0055",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 5 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0028",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "The function lacks validation on TWAP_PERIOD, which could enable oracle manipulation if the period is set too short, but there is no evidence the period can be made arbitrarily small in the current co"
+  ],
+  "severity_override": "low",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "puppet-v3"
+  ],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0019",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The withdraw function uses msg.sender to access the caller's position, so only the caller can withdraw their own collateral; no additional access control is needed."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0057",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The interface only declares a view function; actual security depends on the implementing contract which is not shown."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": true
+ },
+ {
+  "id": "dvd-0011",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The withdraw function uses msg.sender for all operations, so only the caller can withdraw their own staked tokens; arbitrary address withdrawal is not possible."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0071",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 13 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0104",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 10 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0043",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 18 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0033",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 12 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0143",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 30 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0067",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The function reads borrow/collateral amounts, deletes the position before any external calls, leaving no window for another transaction to modify state between read and delete."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0185",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 8 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0088",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The NFT transfer updates ownership before the recipient hook, preventing re‑entry; the burn occurs after the owner check, so no missing verification."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0145",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The transferFrom correctly uses the flash loan receiver as the 'from' address, which is required for ERC3156 repayment; no unauthorized withdrawal is possible."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0079",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The function updates borrow state before the external transfer, so reentrancy cannot increase borrowed amount beyond the collateral limit."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0031",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 11 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0100",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 5 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": true
+ },
+ {
+  "id": "dvd-0230",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The function hardcodes `from: msg.sender`, so an attacker cannot specify an arbitrary `from` address to steal others' allowances."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0087",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The isOpen flag is set before the external transfer, so the described reentrancy window does not exist; the concern misstates the code."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0034",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The withdraw function only reduces the caller's own deposit, not arbitrary user deposits, so the flagged concern is inaccurate."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "naive-receiver"
+  ],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0171",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The function only calls view price oracle and Curve get_virtual_price, which does not modify state and cannot be re‑entered to manipulate the returned value."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0048",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The function merely assigns a timestamp with no validation or side effects; no exploitable vulnerability is evident."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0125",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 6 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0089",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "Owner can pause vault on flash loan failure but cannot transfer ownership, limiting impact to DoS."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0077",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "Only owner can invoke the function and transferOwnership does not change ownership, so the claimed privilege escalation is not exploitable."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0075",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The function zeroes collateralAmount before the external transfer, eliminating the reentrancy window."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0093",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The nonReentrant modifier blocks reentrancy into flashLoan, and no other external token transfers exist to enable cross‑function reentrancy."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0131",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The function is an internal helper that merely decodes and forwards an upgrade call; without evidence of missing access control or external exposure, no vulnerability is evident."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0041",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "The double _updateReward call before super.transfer introduces a potential reentrancy risk only if the token implements hooks, which remains theoretical without a confirmed exploit."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0148",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The flashLoan implementation correctly uses transferFrom(address(receiver), ...) as per ERC3156 spec; pulling from the receiver is intended and not exploitable as described."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "naive-receiver"
+  ],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0056",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 7 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "dvd-0096",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "Owner can change fee recipient, posing centralization risk but requires owner key compromise."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": false,
+  "poc_trig": null
+ },
+ {
+  "id": "pygoat-0113",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Cookie set without secure/httponly/samesite attributes, enabling session theft as shown by PoC."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "pygoat-0066",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Session cookie lacks Secure, HttpOnly, and SameSite attributes, enabling theft via MITM or XSS."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0027",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function incorporates user‑supplied CSRF token directly into a PATCH request to a local service, enabling an attacker to inject arbitrary tokens and potentially manipulate internal state."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0038",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function writes unsanitized user input directly to playground/A9/main.py and playground/A9/api.py, allowing arbitrary file overwrite and potential code execution."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": true
+ },
+ {
+  "id": "pygoat-0032",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The domain input is insufficiently sanitized, allowing shell metacharacters to be injected into a subprocess call with shell=True, leading to remote code execution."
+  ],
+  "severity_override": "critical",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "Insecure Deserialization (pickle)",
+   "YAML Deserialization (A9)"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0112",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The cookie is set without Secure, HttpOnly, and SameSite attributes, making it susceptible to theft via network sniffing, XSS, and CSRF."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "pygoat-0021",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function incorporates user‑supplied CSRF token directly into a PATCH request to a local service, enabling an attacker to inject arbitrary tokens and potentially manipulate internal state."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "pygoat-0013",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Hardcoded demo credentials are exposed in plain text within the HTML, leading to information disclosure."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "pygoat-0103",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "User input is directly embedded into a Django template without sanitization, allowing SSTI as confirmed by PoC."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": true
+ },
+ {
+  "id": "pygoat-0090",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The query variable is rendered with the |safe filter, allowing unsanitized user input to be injected as HTML, leading to reflected XSS."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "pygoat-0031",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function sends user-controlled csrf_token in a PATCH request to a hardcoded localhost URL, enabling an SSRF-like attack against local services."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0110",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function sends user-controlled csrf_token in a PATCH request to a hardcoded localhost URL, enabling an SSRF-like attack against local services."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": true
+ },
+ {
+  "id": "pygoat-0096",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "User-controlled URL is passed directly to requests.get without validation, enabling SSRF."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "pygoat-0004",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function uses shell=True with unsanitized input, allowing command injection as demonstrated by PoC."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": true
+ },
+ {
+  "id": "pygoat-0094",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Missing authorization check allows any authenticated user to access the secret page."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": true
+ },
+ {
+  "id": "pygoat-0029",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The domain input is insufficiently sanitized, allowing shell metacharacters to be injected into a subprocess call with shell=True, leading to remote code execution."
+  ],
+  "severity_override": "critical",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "SSRF"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0082",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The cookie is set without the Secure flag, allowing it to be transmitted over unencrypted HTTP and exposing it to interception."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "pygoat-0039",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Session cookie lacks Secure, HttpOnly, and SameSite attributes, enabling theft via MITM or XSS."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "pygoat-0006",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function incorporates user‑supplied CSRF token directly into a PATCH request to a local service, enabling an attacker to inject arbitrary tokens and potentially manipulate internal state."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "Insecure Deserialization (pickle)",
+   "YAML Deserialization (A9)"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0060",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function writes user‑supplied code to fixed files that could be later executed, enabling remote code execution as demonstrated by the PoC."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": true
+ },
+ {
+  "id": "pygoat-0067",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "CSRF exemption enables forged POST requests that can invoke the endpoint, as demonstrated by the PoC exploit."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0057",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function writes unsanitized user input directly to playground/A9/main.py and playground/A9/api.py, allowing arbitrary file overwrite and potential code execution."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0111",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Session cookie set without secure, httponly, or samesite attributes, enabling theft via MITM, XSS, or CSRF; PoC triggers exploit with high confidence."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "pygoat-0114",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Cookie is set without Secure, HttpOnly, or SameSite attributes, allowing interception, JS access, and CSRF."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "pygoat-0017",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The template uses the safe filter on user-controlled input, allowing HTML/JavaScript injection leading to XSS."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "XSS Stored (Lab2 template)"
+  ],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "pygoat-0079",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Username is rendered with the | safe filter, allowing uncontrolled HTML/JS injection."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "pygoat-0002",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function incorporates user‑supplied CSRF token directly into a PATCH request to a local service, enabling an attacker to inject arbitrary tokens and potentially manipulate internal state."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "pygoat-0030",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The domain input is insufficiently sanitized, allowing shell metacharacters to be injected into a subprocess call with shell=True, leading to remote code execution."
+  ],
+  "severity_override": "critical",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0054",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function directly calls pickle.loads on user-supplied base64 data without validation, enabling arbitrary code execution via a malicious pickle payload."
+  ],
+  "severity_override": "critical",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0053",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Session cookie lacks Secure, HttpOnly, and SameSite attributes, enabling theft via MITM or XSS."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "pygoat-0083",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The cookie is set with secure=False, allowing it to be sent over unencrypted HTTP connections, exposing the session identifier to interception."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "pygoat-0042",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "User-controlled domain is directly inserted into a shell command with shell=True, allowing command injection via metacharacters."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "Command Injection (eval)",
+   "Command Injection (subprocess shell=True)"
+  ],
+  "poc_compile": true,
+  "poc_trig": true
+ },
+ {
+  "id": "pygoat-0052",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Hardcoded demo credentials are exposed in the HTML source, leading to information disclosure."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "pygoat-0005",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function incorporates user‑supplied CSRF token directly into a PATCH request to a local service, enabling an attacker to inject arbitrary tokens and potentially manipulate internal state."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "Insecure Deserialization (pickle)",
+   "YAML Deserialization (A9)"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0001",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Session cookie lacks Secure, HttpOnly, and SameSite attributes, enabling theft via MITM or XSS."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "pygoat-0062",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function writes unsanitized user input to playground/A9/main.py and api.py, enabling arbitrary code execution."
+  ],
+  "severity_override": "critical",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0107",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "User-controlled blog input is directly concatenated into a Django template and written to a file that is later rendered, allowing SSTI exploitation."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "XSS Reflected (Lab1)"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0072",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Username is rendered with the | safe filter, allowing uncontrolled HTML/JS injection."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": true
+ },
+ {
+  "id": "pygoat-0034",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The domain input is insufficiently sanitized, allowing shell metacharacters to be injected into a subprocess call with shell=True, leading to remote code execution."
+  ],
+  "severity_override": "critical",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "Command Injection (eval)",
+   "Command Injection (subprocess shell=True)"
+  ],
+  "poc_compile": true,
+  "poc_trig": true
+ },
+ {
+  "id": "pygoat-0008",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Hardcoded demo credentials are displayed in plaintext in the login page, exposing sensitive data."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "pygoat-0044",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "The code uses unsafe yaml.Loader allowing potential RCE, but PoC did not trigger exploitation, suggesting mitigations or environment constraints."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "Insecure Deserialization (pickle)",
+   "YAML Deserialization (A9)"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0056",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "No exploitable vulnerability found; CSRF token properly used and template variables are trusted."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "pygoat-0102",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "Pickle deserialization of user-controlled token exists but requires an authenticated session, lowering practical exploitability."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "Insecure Deserialization (pickle)",
+   "YAML Deserialization (A9)"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0074",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "PoC did not trigger the expected outcome and the provided source does not confirm the CSRF‑exempt endpoint."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0037",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 17 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "XXE Injection"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0016",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "Authenticated users can inject arbitrary code via eval, but unauthenticated are blocked and PoC did not trigger without auth."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "Command Injection (eval)",
+   "Command Injection (subprocess shell=True)"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0104",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "Eval of user input exists but requires authentication; PoC did not trigger without auth, reducing exploitability."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0046",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The URL is hardcoded to localhost and user input only influences the request payload, not the target endpoint, so SSRF is not possible."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0089",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The function lacks @csrf_exempt and yaml.load, so the flagged vulnerability is not present."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0092",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The function only renders a template and contains no security-relevant logic."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0061",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "MD5 unsalted hash is cryptographically weak but PoC did not confirm practical exploitability."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0108",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "MD5 hashing is weak but exploit requires DB access not demonstrated in PoC."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0098",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The view only renders a template for authenticated users and does not process POST data or expose sensitive functionality; PoC failed to trigger the alleged exploit."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0028",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The function always constructs URLs under https://pypi.org/pypi/, so user input cannot cause requests to arbitrary internal hosts."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0093",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The cmd function only checks authentication and renders a template; it lacks CSRF exemption, user input, or subprocess calls, so the flagged concern does not apply."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": true
+ },
+ {
+  "id": "pygoat-0087",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The function lacks @csrf_exempt and yaml.load, so the flagged vulnerability is not present."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0068",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "The function uses GET for state-changing money transfer without CSRF protection, indicating a CSRF risk, but the PoC did not trigger the expected exploit, suggesting mitigations or environment factors"
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0033",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "Source contains unsafe pickle.loads but PoC failed to demonstrate exploitation, indicating limited exploitability."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0064",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "The function permits arbitrary file write but the PoC did not achieve code execution, indicating additional conditions are needed for RCE."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0080",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The function only handles authentication and rendering, with no pickle deserialization, and the PoC did not trigger the alleged vulnerability."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "Insecure Deserialization (pickle)",
+   "YAML Deserialization (A9)"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0014",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "Pickle deserialization vulnerability present but PoC did not trigger expected RCE, indicating possible mitigations or unmet conditions."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0099",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "No exploitable vulnerability found; the function only renders user tickets and contains only defensive logic."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0003",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The function requires user authentication, so unauthenticated command injection is not possible."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "Command Injection (eval)",
+   "Command Injection (subprocess shell=True)"
+  ],
+  "poc_compile": true,
+  "poc_trig": true
+ },
+ {
+  "id": "pygoat-0000",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 23 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0035",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 19 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "XXE Injection"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0040",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "Hardcoded JWT secret allows token forgery only if secret known and cookie name matches; PoC did not succeed, indicating mitigations."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0069",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 7 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0009",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "eval injection present but PoC did not succeed, indicating possible mitigations reduce exploitability."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0097",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The function only renders a template with a static version string and does not process user input or perform dangerous operations."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0070",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "MD5 hash is weak but exploitation requires database leak; no direct exploit observed in PoC."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0085",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The ba function lacks CSRF exemption and hardcoded admin credential check, so the flagged concern does not apply."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0071",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The code uses ImageMath.eval with user input, which only evaluates limited mathematical expressions and does not allow arbitrary code execution."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "pygoat-0065",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 7 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0025",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The function constructs URLs to pypi.org only; user input cannot change the destination host, preventing SSRF."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0091",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "Eval of user input exists but requires authentication; PoC did not trigger without auth, reducing exploitability."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "Command Injection (eval)",
+   "Command Injection (subprocess shell=True)"
+  ],
+  "poc_compile": true,
+  "poc_trig": true
+ },
+ {
+  "id": "pygoat-0055",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 22 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0012",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "Django template auto-escapes {{code}} by default, preventing script injection."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "XSS Script-context (Lab3 template)"
+  ],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "pygoat-0063",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "Missing Secure flag and weak hardcoded secret are security weaknesses, but the PoC did not demonstrate exploitable MITM attack, indicating only theoretical risk."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "pygoat-0075",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "SQL injection via password parameter exists but requires an authenticated user, so authentication cannot be bypassed."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "SQL Injection"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "pygoat-0036",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 18 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "XXE Injection"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "nodegoat-0009",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function uses eval on unsanitized user input, allowing arbitrary JavaScript execution."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "Server-Side JS Injection (eval)"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "nodegoat-0038",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The variable firstNameSafeString is used unsafely in an href attribute without URL encoding, allowing potential XSS via javascript: URLs."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "nodegoat-0012",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "error"
+  ],
+  "verifier_reasons": [
+   "verify_error: 'NoneType' object is not subscriptable"
+  ],
+  "severity_override": null,
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "Server-Side JS Injection (eval)"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "nodegoat-0011",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "error"
+  ],
+  "verifier_reasons": [
+   "verify_error: 'NoneType' object is not subscriptable"
+  ],
+  "severity_override": null,
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "Server-Side JS Injection (eval)"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "nodegoat-0005",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "error"
+  ],
+  "verifier_reasons": [
+   "verify_error: 'NoneType' object is not subscriptable"
+  ],
+  "severity_override": null,
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "Server-Side JS Injection (eval)"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "nodegoat-0007",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "error"
+  ],
+  "verifier_reasons": [
+   "verify_error: 'NoneType' object is not subscriptable"
+  ],
+  "severity_override": null,
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "Server-Side JS Injection (eval)"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "nodegoat-0008",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "Eval injection present but PoC did not confirm exploitability."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "Server-Side JS Injection (eval)"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "nodegoat-0002",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "Eval usage presents a theoretical code injection risk, but PoC did not demonstrate exploitation and input validation limits impact."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "Server-Side JS Injection (eval)"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "nodegoat-0026",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "SSRF possible in code but PoC did not trigger, indicating environmental controls limit exploitation."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "SSRF via Research"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "nodegoat-0000",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "Source code shows unsanitized threshold used in $where JavaScript expression, but PoC did not trigger exploitation, suggesting mitigations or environment constraints."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "NoSQL Injection ($where)"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "nodegoat-0004",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The flagged eval usage is commented out and the code safely parses input with parseInt, eliminating the injection risk."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "Server-Side JS Injection (eval)"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "nodegoat-0010",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "Eval usage presents code injection risk but PoC did not demonstrate exploitation; likely mitigated by runtime constraints."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "Server-Side JS Injection (eval)"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "nodegoat-0015",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "PoC did not trigger expected outcome, indicating mitigations may exist, but the code still extracts userId from params, presenting a potential IDOR."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "Broken Access Control (IDOR)"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "nodegoat-0023",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "Open redirect exists but PoC did not confirm exploitability as described, reducing likely impact."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "nodegoat-0017",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "Open redirect exists but is protected by authentication, limiting practical exploitability."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "nodegoat-0042",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 78 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "nodegoat-0016",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "Code concatenates unsanitized user input into URL enabling SSRF, but PoC did not trigger, indicating possible environmental constraints."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "SSRF via Research"
+  ],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "nodegoat-0003",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 165 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": false
+ },
+ {
+  "id": "nodegoat-0046",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 78 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": false,
+  "gt_ids_mech": [],
+  "poc_compile": true,
+  "poc_trig": true
+ },
+ {
+  "id": "smartbugs-0098",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function iterates over a user-supplied array with no limit, executing unchecked low-level calls that can exceed the block gas limit, causing a denial-of-service."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0470",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "If the owner's private key is compromised, an attacker can call withdraw to drain funds."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0540",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The loop can be made arbitrarily large, consuming excessive gas and causing denial of service."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0482",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Owner can set secretSigner to attacker address, enabling forged signatures and fund extraction."
+  ],
+  "severity_override": "critical",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0377",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The external call occurs before updating the Holder balance, allowing a malicious recipient contract to re-enter and withdraw multiple times."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0152",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   ""
+  ],
+  "severity_override": null,
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0427",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Owner can arbitrarily set difficulty, allowing manipulation of game randomness and fairness."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0749",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "A single failing send() causes the entire loop to revert, locking all refunds."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0310",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function exposes a classic reentrancy vulnerability by sending Ether/token after clearing balances but before updating state, allowing a malicious recipient to re-enter and drain funds."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "spank_chain_payment.sol"
+  ],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0207",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "External transfer (send) occurs before updating game state, enabling reentrancy via a malicious contract's fallback to drain funds."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0416",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function allows unlimited appends to indexarray, which can be exhausted to cause gas‑limit DoS when the array is later iterated."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0334",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The owner can arbitrarily change ownership to any address, allowing an attacker to gain privileged access and drain funds via functions like WithdrawToHolder."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0409",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Owner can unilaterally enable public access; if owner key is compromised, attacker can rig outcomes."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0039",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Unbounded loop with unchecked low-level calls can exceed block gas limit, causing denial of service."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0739",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function lets an attacker arbitrarily increase storage array size via the `numbers` parameter, causing excessive gas consumption and potential block‑gas‑limit DoS."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0094",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Owner can selfdestruct and send remaining ETH to themselves if the owner key is compromised."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0479",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Owner can send arbitrary Ether to any address via unchecked call, allowing fund drain if owner key compromised."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0212",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Attacker can become frontrunner and cause the refund send to revert, preventing any higher bids and locking the auction."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0767",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "External call before balance update allows reentrancy draining ETH."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0876",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "block.timestamp can be influenced by miners to bias the parity-based randomness, allowing an attacker to repeatedly win the jackpot."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0437",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Owner with onlyOwner can modify marriage state and events, breaking immutability if key compromised."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0381",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Owner can withdraw any holder's token balance, allowing total fund loss if private key compromised."
+  ],
+  "severity_override": "critical",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0915",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "block.timestamp can be influenced by miners to bias the parity-based randomness, allowing an attacker to repeatedly win the jackpot."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0426",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Owner can withdraw arbitrary token amounts and zero holder balances, enabling fund drain if the owner key is compromised."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0036",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function iterates over a user-supplied array with no length limit, performing external calls that can exceed the block gas limit and lock funds."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0193",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "[[ ## verdict_json ## ]]\n{\n  \"verdict_json\": \"{\\\"verdict\\\":\\\"confirmed\\\",\\\"severity\\\":\\\"high\\\",\\\"reason\\\":\\\"The withdraw function sends ETH before updating balances, enabling a reentrancy attack.\\\"}\"\n"
+  ],
+  "severity_override": null,
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0320",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The owner can set betLimit to any value via AdjustBetAmounts, so a compromised owner key allows arbitrary oversized bets."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0348",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function zeroes internal balances before external token transfers, enabling a reentrancy attack that could allow repeated withdrawals."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "spank_chain_payment.sol"
+  ],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0220",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Attacker can become frontrunner and cause the refund send to revert, preventing any higher bids and locking the auction."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0495",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Owner can set secret value, allowing manipulation if owner key is compromised."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0405",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Owner can push unlimited events, causing iteration to exceed block gas limit and DoS readers."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0752",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "A single failing send call causes the whole loop to revert, preventing any further refunds and locking funds."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0855",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function clears party balances before external transfers but leaves pending balances (indices 2,3) unchanged, enabling reentrant calls to repeatedly withdraw those funds."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0133",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Root can unilaterally delete any owner, bypassing multi-signature consensus."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "multiowned_vulnerable.sol"
+  ],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0218",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The pay function sends Ether via transfer before updating the caller's balance, enabling a reentrancy attack when called from payWallet or disinvest."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0104",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "Downcasting uint256 to uint32 can truncate large IDs, causing incorrect Panda references and breeding state corruption."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0342",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function zeroes internal balances before external token transfers, enabling a reentrancy attack that could allow repeated withdrawals."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0354",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The function uses low-level call without checking return value, allowing a malicious token to silently fail and drain funds."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0434",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   ""
+  ],
+  "severity_override": null,
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0508",
+  "stratum": "shipped",
+  "verifier_verdicts": [
+   "confirmed"
+  ],
+  "verifier_reasons": [
+   "The winner.send(subpot) call occurs before the isCashed flag is set, enabling a reentrant attacker to withdraw the same subpot multiple times."
+  ],
+  "severity_override": "high",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0471",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The withdraw function restricts the owner to withdraw only up to their own deposited balance (Deposits[msg.sender]), so they cannot drain other users' funds as alleged."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0494",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 10 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0383",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The allowance function is a view-only getter with no external calls or state modifications, so no exploitable vulnerability."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0245",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The function uses low-level send calls that do not revert on failure, so the arrays are always reset after the timeout, preventing a denial-of-service."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0242",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "The function follows check-effects-interacts pattern poorly but uses send() which limits reentrancy gas, reducing exploitability."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0071",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The constructor does not contain the unsafe downcasts of _startingPrice, _endingPrice, or _duration; the flagged issue is not present."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0040",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The require statement ensures newKittenId fits within uint32 before any use, preventing overflow; no actual truncation occurs elsewhere."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0436",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The owner-restricted changeOwner function is intended access control and does not introduce an exploitable vulnerability."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0272",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "The function grows History unbounded, but no iteration over History is shown, making the DoS risk theoretical."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0278",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "History array can grow unbounded; if later code iterates over it, could exceed block gas limit, but no iteration present."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0034",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 51 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "parity_wallet_bug_1.sol"
+  ],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0070",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The provided ClockAuction constructor lacks the downcast parameters mentioned in the concern, so the issue does not exist in this code."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0369",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The changeOwner function only assigns to an unused variable newOwner and does not modify owner state, so it does not transfer control."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0450",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "Owner-only function presents centralization risk; compromise of owner key could lead to misuse, but no direct code flaw."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0149",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "The transfer occurs after the delegatecall that updates calculatedFibNumber, so the described reentrancy cannot lead to repeated withdrawals of the same Fibonacci amount without incrementing withdrawa"
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0192",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "No evidence of unbounded loop or arbitrary dividendPeriod increase in the provided constructor code."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0109",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The unpause function's modifiers enforce access control for both external and internal calls, so public vs external does not create a vulnerability."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0030",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "Function properly restricts access to CEO and validates address, no exploitable issue."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0547",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "The function grows the pastMonarchs array without bound, but no iteration over it is shown; a DoS would depend on other code not provided."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0241",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "The reentrancy attempt is limited by the 2300‑gas stipend of send, making practical exploitation infeasible despite the theoretical ordering issue."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0007",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The withdraw function only permits transfers up to the caller's balance, so a zero‑balance caller cannot drain funds."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "wallet_02_refund_nosub.sol"
+  ],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0463",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 10 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0119",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "The transfer occurs after the delegatecall that updates calculatedFibNumber, so the described reentrancy cannot lead to repeated withdrawals of the same Fibonacci amount without incrementing withdrawa"
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0236",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "The send occurs before balance and payoutOrder updates, creating a reentrancy pattern, but the provided snippet lacks a visible external entry point to exploit it."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0906",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The function permits the initiator to withdraw only their own balances after timeout, which aligns with the protocol's unilateral close design."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0380",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "Missing OwnershipTransferred event reduces transparency but does not enable unauthorized ownership change."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "0x663e4229142a27f00bafb5d087e1e730648314c3.sol"
+  ],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0265",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "The function is owner‑only; exploitation requires off‑chain compromise of the owner key, which is a centralization risk not a direct contract vulnerability."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0275",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The changeOwner function merely assigns new owner and lacks any exploitable logic; the alleged exploit requires a separate vulnerable withdraw function not shown."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0165",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "Missing timelock on ownership transfer is a design improvement but does not create a new exploitable flaw beyond the assumed owner key compromise."
+  ],
+  "severity_override": "medium",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0060",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The require(_generation == uint256(uint16(_generation))) ensures _generation fits within uint16, preventing silent truncation."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0201",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "No evidence of unbounded loop or arbitrary dividendPeriod increase in the provided constructor code."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0466",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "Only the owner can call newPuppet, so an external attacker cannot exhaust the puppets array to cause DoS."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0461",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "State is updated before external calls in the main path, preventing request reuse; only a potential denial‑of‑service if SGX send fails."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0447",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "[[ ## verdict_json ## ]]\n{\"verdict_json\": \"{\\\"verdict\\\": \\\"downgraded\\\", \\\"severity\\\": \\\"medium\\\", \\\"reason\\\": \\\"The function uses low-level call without checking return value, which could hide transf"
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0170",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "no_function_body: Semgrep rule fired on a pragma/import/global decl at line 7 — no executable code to anchor the concern."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "overflow_simple_add.sol"
+  ],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0261",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "downgraded"
+  ],
+  "verifier_reasons": [
+   "External call before state clearing creates reentrancy risk, but function is private; exploit depends on external reentrant caller not shown."
+  ],
+  "severity_override": "low",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0344",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "OnlyOwner modifier blocks reentrancy because the recursive call's msg.sender would be the attacker contract, not the owner."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0132",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The withdraw function restricts execution to msg.sender == requests[0].requester; without evidence that an attacker can satisfy this condition, the flagged exploitability is not confirmed."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0515",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The withdraw function restricts the owner to withdraw only up to their own deposited balance (Deposits[msg.sender]), so they cannot drain other users' funds as alleged."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": false,
+  "label_tp_file": true,
+  "gt_ids_mech": [],
+  "poc_compile": null,
+  "poc_trig": null
+ },
+ {
+  "id": "smartbugs-0308",
+  "stratum": "withheld",
+  "verifier_verdicts": [
+   "false_positive"
+  ],
+  "verifier_reasons": [
+   "The function sets isOpen to false before performing external ETH and token transfers, so reentrancy cannot re-enter the function."
+  ],
+  "severity_override": "info",
+  "label_tp_mech": true,
+  "label_tp_file": true,
+  "gt_ids_mech": [
+   "spank_chain_payment.sol"
+  ],
+  "poc_compile": null,
+  "poc_trig": null
+ }
+]

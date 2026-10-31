@@ -1,0 +1,16 @@
+{
+  "_comment": "PyGoat ground truth — file-level: a scan catches a vuln if any shipped finding flags the listed file. Verified against real source (line numbers from repo).",
+  "vulns": [
+    {"name": "SQL Injection", "file": "introduction/views.py", "line": 158, "category": "sql_injection", "evidence": "raw SQL string concat on user/password"},
+    {"name": "Command Injection (subprocess shell=True)", "file": "introduction/views.py", "line": 430, "category": "command_injection", "evidence": "subprocess.Popen(command, shell=True, ...)"},
+    {"name": "Command Injection (eval)", "file": "introduction/views.py", "line": 460, "category": "command_injection", "evidence": "output = eval(val)"},
+    {"name": "Insecure Deserialization (pickle)", "file": "introduction/views.py", "line": 214, "category": "insecure_deserialization", "evidence": "admin = pickle.loads(token)"},
+    {"name": "XXE Injection", "file": "introduction/views.py", "line": 259, "category": "xxe", "evidence": "parser.setFeature(feature_external_ges, True)"},
+    {"name": "XSS Reflected (Lab1)", "file": "introduction/views.py", "line": 101, "category": "xss", "evidence": "render xss_lab.html with unfiltered query"},
+    {"name": "XSS Stored (Lab2 template)", "file": "introduction/templates/Lab/XSS/xss_lab_2.html", "line": 20, "category": "xss", "evidence": "{{ username|safe }}"},
+    {"name": "XSS Script-context (Lab3 template)", "file": "introduction/templates/Lab/XSS/xss_lab_3.html", "line": 22, "category": "xss", "evidence": "<script>{{code}}</script>"},
+    {"name": "Broken Access Control (cookie)", "file": "introduction/views.py", "line": 347, "category": "broken_access_control", "evidence": "request.COOKIES.get('admin') == '1'"},
+    {"name": "YAML Deserialization (A9)", "file": "introduction/views.py", "line": 560, "category": "insecure_deserialization", "evidence": "yaml.load(file, yaml.Loader)"},
+    {"name": "SSRF", "file": "introduction/views.py", "line": 963, "category": "ssrf", "evidence": "requests.get(url) on user URL"}
+  ]
+}

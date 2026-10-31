@@ -1,0 +1,322 @@
+[
+ {
+  "id": "pygoat-0012",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "high",
+  "evidence": "introduction/templates/Lab/XSS/xss_lab_3.html:19-23, introduction/views.py:122-133",
+  "justification": "{{code}} is interpolated into raw <script> text and comes from POST 'username' (xss_lab3), so script-context XSS is real and matches the documented Lab3 script-context XSS entry; only the sample payload is off (the view strips all alphanumerics and Django escapes the quote to &quot;, but JSFuck-style []()!+ payloads pass through untouched and execute, which the view's own comment states)."
+ },
+ {
+  "id": "pygoat-0074",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": null,
+  "confidence": "medium",
+  "evidence": "introduction/mitre.py:176-210, introduction/urls.py:117-118",
+  "justification": "A cross-site forged request really can move funds: csrf_transfer_monei_api performs a state change on a GET (/mitre/9/lab/api/<recipent>/<amount>) authenticated only by the auto-sent auth_cookiee JWT, which is the lab's intended CWE-352. The attribution to @csrf_exempt is imprecise (both branches are GET, which Django never CSRF-checks anyway) and the cited file path is wrong, but the described attack and impact hold."
+ },
+ {
+  "id": "pygoat-0025",
+  "label": "FALSE",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "introduction/playground/A6/soln.py:4-15, introduction/apis.py:9,114-117",
+  "justification": "No user input reaches check_vuln - soln.py's copy is never imported at all, and the live copy is only called with the hardcoded test_bench list in A6_disscussion_api. The asserted URL-parsing behaviour is also wrong: '@' after the authority (which ends at the first '/' in https://pypi.org/...) is an ordinary path character, so the host stays pypi.org and no SSRF occurs."
+ },
+ {
+  "id": "pygoat-0068",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "introduction/mitre.py:213-221, introduction/urls.py:119",
+  "justification": "mitre_lab_25_api is routed at /mitre/25/lab/api with @authentication_decorator commented out and @csrf_exempt applied, and it passes request.POST['expression'] straight to eval(), so a forged (or simply direct, unauthenticated) POST yields RCE exactly as described; only the cited file path (playground/A9/main.py) is wrong."
+ },
+ {
+  "id": "pygoat-0072",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "introduction/mitre.py:214-219, introduction/urls.py:119",
+  "justification": "eval() on the unsanitised 'expression' POST parameter in an unauthenticated, csrf-exempt view is real remote code execution with the result echoed back in the JsonResponse; the claim is accurate as stated."
+ },
+ {
+  "id": "pygoat-0103",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "medium",
+  "evidence": "introduction/views.py:975-1008, introduction/utility.py:55-56, introduction/templates/Lab_2021/A3_Injection/ssti_lab.html:22, Solutions/solution.md:511-522",
+  "justification": "The mechanism is right (filter_blog is a no-op, so the POSTed blog is written verbatim into a template file that ssti_view_blog later renders), but the claimed impact - arbitrary Python execution / os.system via the Django template engine - is prevented by Django's template language (no argument-passing calls, underscore attributes blocked, no custom templatetags in the project); the real, still-serious impact is template-tag driven information disclosure, as the project's own solution shows ({% get_admin_log %} dumping password hashes)."
+ },
+ {
+  "id": "pygoat-0001",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "introduction/templates/Lab/XSS/xss_lab.html:26-27, introduction/views.py:93-101, introduction/urls.py:11,14",
+  "justification": "xss_lab passes the unfiltered GET parameter q into the template as 'query' whenever no FAANG row matches, and line 27 renders it with |safe, so /xssL1?q=<script>... is genuine reflected XSS; no documented entry exists for this template file."
+ },
+ {
+  "id": "pygoat-0036",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "high",
+  "evidence": "introduction/views.py:17-19,255-270, introduction/urls.py:23",
+  "justification": "The native xml parser is not merely imported: xxe_parse explicitly calls parser.setFeature(feature_external_ges, True) on request.body with @csrf_exempt and no auth check, and the resolved entity text is stored into comments and displayed by xxe_see, so file exfiltration works - the same weakness as the documented 'XXE Injection' entry for this file."
+ },
+ {
+  "id": "pygoat-0091",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "high",
+  "evidence": "introduction/views.py:452-469, introduction/urls.py:37",
+  "justification": "cmd_lab2 evaluates request.POST['val'] with eval() and renders the result back to the caller, giving RCE - the documented 'Command Injection (eval)' entry for views.py; the only inaccuracy is 'unauthenticated', since the view requires request.user.is_authenticated (which per protocol does not defeat the finding)."
+ },
+ {
+  "id": "pygoat-0064",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "introduction/apis.py:125-138, introduction/apis.py:9, introduction/urls.py:89",
+  "justification": "A6_disscussion_api_2 is routed at /2021/discussion/A6/api2 with @csrf_exempt and no authentication, and writes the raw POST 'code' over introduction/playground/A6/utility.py - a module that apis.py imports and whose check_vuln is invoked by /2021/discussion/A6/api - so an unauthenticated attacker overwrites application source and gets execution on the next import/reload (DEBUG=True runserver autoreloads on that write)."
+ },
+ {
+  "id": "pygoat-0071",
+  "label": "FALSE",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "introduction/templates/Lab/A9/a9_lab2.html:90-92, introduction/views.py:574-605",
+  "justification": "The asserted data flow does not exist: 'data' is only ever set to the constant strings 'Error' or 'Please Upload a file' in a9_lab2's except branches, and request.POST['function'] is passed to ImageMath.eval, never into the template context, so alert(\"{{ data }}\") cannot be attacker-controlled."
+ },
+ {
+  "id": "pygoat-0027",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "introduction/apis.py:59-90 (url constant at :79, requests at :81-84)",
+  "justification": "The outbound requests are real but the URL is the string literal 'http://127.0.0.1:8000/2021/discussion/A9/target' with no user input in it; only the CSRF token value is echoed into a PATCH body. No attacker-controlled destination exists, so the claimed SSRF against internal/metadata endpoints is not achievable (the analysis even concedes the URL is static)."
+ },
+ {
+  "id": "pygoat-0013",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "dockerized_labs/sensitive_data_exposure/templates/login.html:57-64, dockerized_labs/sensitive_data_exposure/dataexposure/forms.py:4-6, .../views.py:20-36",
+  "justification": "|safe on {{ form.username }} is a no-op: the value is a Django BoundField whose rendering already returns mark_safe'd widget HTML with all attribute values escaped by format_html. The login page also never renders another user's stored username (the form is unbound on GET, bound to the submitter's own POST otherwise), so the claimed stored-XSS-via-registered-username flow does not exist."
+ },
+ {
+  "id": "pygoat-0060",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": null,
+  "confidence": "medium",
+  "evidence": "introduction/apis.py:59-90, introduction/urls.py:83-84",
+  "justification": "The endpoint really is csrf_exempt with its auth decorator commented out and writes POSTed log_code/api_code verbatim over playground/A9/main.py and api.py (api.py backs the routed log_function_target view), so the described arbitrary-code-write leading to execution is genuine; the CSRF framing adds little since no authentication is required at all, but the analysis correctly describes the real weakness."
+ },
+ {
+  "id": "pygoat-0065",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "medium",
+  "evidence": "introduction/playground/A9/api.py:7-33, introduction/urls.py:84",
+  "justification": "@csrf_exempt is really there, but the endpoint has no session-based authentication or per-user state - it just compares the POSTed username/password to the hardcoded 'admin'/'admin' - so riding a victim's cookies gains nothing an attacker cannot do by POSTing directly, and cross-origin responses are unreadable. The genuine issues here (hardcoded credentials, credentials passed to the logger) are not the CSRF impact claimed."
+ },
+ {
+  "id": "pygoat-0092",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "medium",
+  "evidence": "introduction/views.py:492-518, introduction/urls.py:41",
+  "justification": "The decorator exists, but the described attack misreads the view: the POST branch only reads 'otp' from POST and 'email' from a cookie - it does not read email from POST, generate an OTP, or set a cookie (that is the GET branch). Otp is entirely unauthenticated, so there is no victim session to forge with; the lab's real flaw is the 3-digit OTP and the id=2 admin bypass at line 514, not CSRF."
+ },
+ {
+  "id": "pygoat-0054",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "dockerized_labs/insec_des_lab/main.py:30-48",
+  "justification": "deserialize_data base64-decodes request.form['serialized_data'] and passes it to pickle.loads with no authentication or validation, so a crafted __reduce__ payload gives arbitrary code execution exactly as described."
+ },
+ {
+  "id": "pygoat-0042",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "high",
+  "evidence": "introduction/views.py:414-446 (regex :420, Popen shell=True :430-434), introduction/urls.py:36",
+  "justification": "The POSTed 'domain' is interpolated into 'dig {}'/'nslookup {}' and run through a shell; the regex only strips a leading protocol/www prefix and does not touch ;, |, & or $(), and stdout+stderr are rendered back - the documented 'Command Injection (subprocess shell=True)' weakness."
+ },
+ {
+  "id": "pygoat-0107",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "medium",
+  "evidence": "introduction/views.py:984-998,1003-1008, introduction/utility.py:55-56, Solutions/solution.md:511-522",
+  "justification": "Concatenating the unfiltered blog into template source that is later rendered is real server-side template injection, but the claimed 'arbitrary Python code execution / full RCE' is blocked by Django's template engine (no calls with arguments, underscore attributes rejected, no custom templatetags in this project); the project's own solution demonstrates the actual impact as information disclosure via {% load log %}/{% get_admin_log %}."
+ },
+ {
+  "id": "pygoat-0108",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "introduction/views.py:1018-1032 (md5 at :1026-1027), introduction/urls.py:73",
+  "justification": "crypto_failure_lab hashes the submitted password with bare unsalted MD5 and matches it against CF_user.password, i.e. the stored credentials are unsalted MD5 - a genuine CWE-327/916 weakness (the whole point of this Cryptographic Failure lab); it is not among the documented entries for views.py."
+ },
+ {
+  "id": "pygoat-0006",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "high",
+  "evidence": "introduction/views.py:205-221 (pickle.loads at :214), introduction/urls.py:19",
+  "justification": "insec_des_lab base64-decodes the client-supplied 'token' cookie and calls pickle.loads on it, so a crafted pickle gives code execution - the documented 'Insecure Deserialization (pickle)' entry for this file."
+ },
+ {
+  "id": "pygoat-0111",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "medium",
+  "evidence": "introduction/views.py:1189-1198 (flagged set_cookie at :1197), introduction/views.py:1204",
+  "justification": "At the flagged line the cookie value is a constant (set_cookie('session_id', None) writes the literal 'None' in the parse-failure branch), so no session token is exposed and the described interception/XSS-theft scenario does not apply there; the substantive missing-flags issue is the token-bearing set_cookie at line 1204."
+ },
+ {
+  "id": "pygoat-0046",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "introduction/apis.py:79-84",
+  "justification": "The URL passed to requests.request is a hardcoded literal, so there is no attacker-controlled destination and the high-severity SSRF asserted in the impact section cannot occur; the analysis itself concedes mid-text that it is 'not exploitable as written'. Missing allow-listing on a constant URL is informational only."
+ },
+ {
+  "id": "pygoat-0028",
+  "label": "FALSE",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "introduction/playground/A6/utility.py:4-15, introduction/apis.py:9,114-117",
+  "justification": "check_vuln is only ever called with the hardcoded ['Pillow==8.0.0', ...] test bench in A6_disscussion_api, so list_of_modules is not attacker-controlled; and injecting a scheme/host into the path of https://pypi.org/pypi/... does not change the request's host, so the asserted SSRF flow does not exist."
+ },
+ {
+  "id": "pygoat-0114",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": false,
+  "confidence": "medium",
+  "evidence": "introduction/views.py:1049-1082 (set_cookie at :1076, cookie consumed at :1053-1063)",
+  "justification": "The cookie set here is the lab's authentication token ('User|<expiry>', unsigned) and is set with no Secure, HttpOnly or SameSite attributes, so it is exposed to plaintext interception and to document.cookie - a genuine CWE-614/1004 issue, though the more severe flaw at this endpoint is that the cookie is unsigned and trivially forgeable to 'admin|...'."
+ },
+ {
+  "id": "pygoat-0009",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "introduction/mitre.py:214-219, introduction/urls.py:119",
+  "justification": "request.POST['expression'] flows directly into eval() in a view that is csrf_exempt and has its authentication decorator commented out, and the result is returned to the caller - straightforward unauthenticated RCE as claimed."
+ },
+ {
+  "id": "pygoat-0057",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "introduction/apis.py:59-74, introduction/urls.py:3,83-84",
+  "justification": "log_function_checker takes POSTed log_code/api_code and writes them verbatim over introduction/playground/A9/main.py and api.py with no authentication and no CSRF token; api.py defines log_function_target which urls.py imports and routes, so the attacker-supplied source is loaded and executed on the next import/reload (DEBUG=True runserver reloads on the write)."
+ },
+ {
+  "id": "pygoat-0063",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "introduction/mitre.py:154-174 (set_cookie at :171), introduction/mitre.py:181-184,193-196",
+  "justification": "auth_cookiee is the session credential for the CSRF lab (the JWT is the only thing csrf_transfer_monei/_api check) and is set with no Secure, HttpOnly or SameSite flags, so it is exposed to plaintext interception and script access; the noted hardcoded HS256 secret 'csrf_vulneribility' at line 169 makes it forgeable as well."
+ },
+ {
+  "id": "pygoat-0017",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "high",
+  "evidence": "introduction/templates/Lab/XSS/xss_lab_2.html:20, introduction/views.py:106-118, introduction/urls.py:12",
+  "justification": "xss_lab2 only strips the literal substrings '<script>'/'</script>' and then renders the value with |safe, so payloads such as <img src=x onerror=...> or nested <scr<script>ipt> execute - the documented 'XSS Stored (Lab2 template)' weakness; only the sample payload in the write-up would be filtered."
+ },
+ {
+  "id": "pygoat-0090",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "introduction/templates/Lab/XSS/xss_lab.html:26-27, introduction/views.py:93-101",
+  "justification": "The named mechanism is correct: the GET parameter q reaches the template as 'query' and is rendered with |safe, giving reflected XSS at /xssL1?q=... The framework attribution (Flask/Jinja2) is wrong - this is Django - but the flagged pattern, data flow and impact are accurate."
+ },
+ {
+  "id": "pygoat-0034",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "high",
+  "evidence": "introduction/views.py:414-446 (regex :420, Popen shell=True :430-434)",
+  "justification": "User-supplied 'domain' is string-formatted into a shell command executed with shell=True and the output is rendered back; the prefix-stripping regex neutralises no shell metacharacters, so command injection is real - the documented 'Command Injection (subprocess shell=True)' entry."
+ },
+ {
+  "id": "pygoat-0032",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "high",
+  "evidence": "introduction/views.py:205-221 (pickle.loads at :214)",
+  "justification": "The 'token' cookie is fully attacker-controlled and is base64-decoded then unpickled, so a __reduce__ gadget executes on the server - the documented 'Insecure Deserialization (pickle)' weakness for this file."
+ },
+ {
+  "id": "pygoat-0002",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "introduction/templates/Lab_2021/A8_software_and_data_integrity_failure/lab2.html:11, introduction/views.py:1219-1226, introduction/urls.py:80, Solutions/solution.md:527-530",
+  "justification": "software_and_data_integrity_failure_lab2 puts request.GET['username'] into the context and the template renders it with |safe, so the reflected XSS is genuine - the project's own solution file uses exactly such a ?username=<script>... URL; only the URL cited in the write-up (/2021/A8 instead of /2021/A8/lab2) is off."
+ },
+ {
+  "id": "pygoat-0014",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "dockerized_labs/insec_des_lab/main.py:30-48",
+  "justification": "pickle.loads is applied to base64-decoded, unauthenticated form input in the /deserialize route, so a crafted payload executes arbitrary code during unpickling exactly as described."
+ },
+ {
+  "id": "pygoat-0083",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "introduction/views.py:299-321 (set_cookie at :319), introduction/views.py:302",
+  "justification": "The 'userid' cookie is the sole authenticator for this lab - auth_lab_login's GET branch logs a visitor in from authLogin.objects.filter(userid=request.COOKIES['userid']) - and it is set with secure=False, samesite=None and no HttpOnly for a year, so interception or script access yields full impersonation as claimed; not among the documented entries (the documented cookie issue is ba_lab's admin cookie)."
+ },
+ {
+  "id": "pygoat-0030",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": null,
+  "confidence": "medium",
+  "evidence": "dockerized_labs/insec_des_lab/main.py:21-28 (flagged pickle.dumps at :27), dockerized_labs/insec_des_lab/main.py:30-36",
+  "justification": "The weakness the claim describes - untrusted base64 pickle deserialized in this Flask app, giving RCE - genuinely exists and is reachable via /deserialize (line 36); the flagged line itself is only the serialisation of a server-built object, and the write-up speculates about code it should have read in the same file, so the anchor is off by a few lines even though the finding is real."
+ },
+ {
+  "id": "pygoat-0055",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": null,
+  "confidence": "medium",
+  "evidence": "introduction/apis.py:22-54, introduction/utility.py:9-38, introduction/urls.py:68",
+  "justification": "ssrf_code_checker is csrf_exempt but does require an authenticated session, so a forged cross-site POST from a logged-in victim is meaningful, and ssrf_code_converter writes the attacker's python_code into introduction/playground/ssrf/main.py before any validation - attacker-controlled server-side code. The specific exfiltration channel claimed is wrong: the view returns only fixed pass/fail messages, never ssrf_lab's file contents."
+ },
+ {
+  "id": "pygoat-0070",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": null,
+  "confidence": "medium",
+  "evidence": "introduction/mitre.py:154-174 (md5 at :161-162)",
+  "justification": "csrf_lab_login stores/compares passwords as bare unsalted MD5, a genuine CWE-327/916 weakness allowing cheap offline cracking of any leaked CSRF_user_tbl row; the write-up's talk of 'fast preimage attacks' and forging hashes misstates MD5's actual break (collisions plus brute-force speed), but the underlying finding stands."
+ },
+ {
+  "id": "pygoat-0113",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "introduction/views.py:1177-1205 (set_cookie at :1204, cookie consumed at :1182-1185)",
+  "justification": "session_id is the bearer token that auth_failure_lab3 looks up in AF_session_id to authenticate the visitor, and it is set with no Secure, HttpOnly or SameSite attributes, so interception or a script read gives full session takeover - a real CWE-614/1004 issue not covered by the documented entries."
+ },
+ {
+  "id": "pygoat-0000",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "introduction/lab_code/test.py:18-23, requirements.txt:27",
+  "justification": "yaml.load without a Loader is the flagged pattern, but the file is a dead scratch script - nothing in the project imports introduction/lab_code/test.py, it is never executed by the app, and it reads a hardcoded developer path (/home/fox/test.yaml) that no application code writes, so the postulated attacker-controlled YAML has no path in this codebase (PyYAML 5.1 also defaults that call to FullLoader)."
+ }
+]

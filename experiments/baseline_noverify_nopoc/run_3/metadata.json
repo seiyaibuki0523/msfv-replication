@@ -1,0 +1,17 @@
+{
+  "run_id": "3",
+  "started_at": "2026-06-06 02:35:16",
+  "elapsed_seconds": 6489.31,
+  "elapsed_human": "108m 9s",
+  "target": "dvd",
+  "state_id": "paper_run_3_1780684516",
+  "findings_count": 217,
+  "error": null,
+  "backends_all_layers": "vllm:nemotron-120b",
+  "ablation": {
+    "AISEC_DISABLE_POC_VALIDATOR": true,
+    "AISEC_DISABLE_VERIFY": true
+  },
+  "parallel_workers": 3,
+  "frozen_commit": "f6e5a0d"
+}

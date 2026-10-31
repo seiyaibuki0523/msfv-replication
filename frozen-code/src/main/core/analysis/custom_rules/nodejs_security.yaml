@@ -1,0 +1,92 @@
+rules:
+  # ── NoSQL injection (MongoDB $where / operator injection) ──────────────
+  - id: nodejs-nosql-where-injection
+    message: >-
+      MongoDB $where query with interpolated/concatenated input. $where runs
+      arbitrary JS server-side; any user-controlled value enables NoSQL
+      injection and SSJI. Use a typed query operator, never $where with input.
+    severity: ERROR
+    languages: [javascript, typescript]
+    metadata: {cwe: "CWE-943", category: security}
+    pattern-either:
+      - pattern: '{$where: `...${$X}...`}'
+      - pattern: '{$where: "..." + $X}'
+      - pattern: '{$where: $X + "..."}'
+
+  # ── Server-side JS injection via eval on request data ──────────────────
+  - id: nodejs-eval-request-input
+    message: >-
+      eval()/Function() on request-derived data — server-side JS injection
+      (arbitrary code execution). Parse with a safe parser instead.
+    severity: ERROR
+    languages: [javascript, typescript]
+    metadata: {cwe: "CWE-95", category: security}
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+      - pattern: setTimeout($X, ...)
+      - pattern: setInterval($X, ...)
+
+  # ── SSRF: outbound request to a user-controlled URL ────────────────────
+  - id: nodejs-ssrf-user-url
+    message: >-
+      Outbound HTTP request to a concatenated/interpolated URL. If any part
+      derives from request input this is SSRF. Validate against an allow-list
+      and reject internal addresses.
+    severity: WARNING
+    languages: [javascript, typescript]
+    metadata: {cwe: "CWE-918", category: security}
+    pattern-either:
+      - pattern: needle.$M($URL, ...)
+      - pattern: axios.$M($URL, ...)
+      - pattern: request($URL, ...)
+      - pattern: fetch($URL, ...)
+      - pattern: http.get($URL, ...)
+      - pattern: https.get($URL, ...)
+    metavariable-pattern:
+      metavariable: $URL
+      patterns:
+        - pattern-either:
+            - pattern: $A + $B
+            - pattern: '`...${$X}...`'
+
+  # ── OS command execution ───────────────────────────────────────────────
+  - id: nodejs-child-process-exec
+    message: >-
+      child_process.exec/execSync run a string through a shell. With any
+      user-controlled component this is OS command injection. Use execFile/
+      spawn with an argument array and no shell.
+    severity: ERROR
+    languages: [javascript, typescript]
+    metadata: {cwe: "CWE-78", category: security}
+    pattern-either:
+      - pattern: $CP.exec($CMD, ...)
+      - pattern: $CP.execSync($CMD, ...)
+      - pattern: exec($CMD, ...)
+
+  # ── Broken access control: trusting an id from the request ─────────────
+  - id: nodejs-idor-userid-from-request
+    message: >-
+      Object id taken directly from req.params/req.query/req.body and used to
+      fetch a record. If it is not checked against the session user this is an
+      IDOR / broken access control. Authorize the id against the session.
+    severity: WARNING
+    languages: [javascript, typescript]
+    metadata: {cwe: "CWE-639", category: security}
+    pattern-either:
+      - pattern: $X = req.params.$P
+      - pattern: '{ $P } = req.params'
+      - pattern: $X = req.query.$P
+
+  # ── Weak / plaintext credential handling ───────────────────────────────
+  - id: nodejs-weak-password-compare
+    message: >-
+      Plaintext password comparison/storage. Passwords must be hashed
+      (bcrypt/scrypt/argon2) and compared with a constant-time check.
+    severity: WARNING
+    languages: [javascript, typescript]
+    metadata: {cwe: "CWE-256", category: security}
+    pattern-either:
+      - pattern: $A.password === $B.password
+      - pattern: $A.password == $B.password
+      - pattern: if ($USER.password === $P) ...

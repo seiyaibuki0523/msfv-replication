@@ -1,0 +1,18 @@
+─── starting run_3 @ Sat Jun  6 02:35:14 CST 2026 ───
+[92m02:35:15 - LiteLLM:WARNING[0m: common_utils.py:979 - litellm: could not pre-load bedrock-runtime response stream shape — Bedrock event-stream decoding will be unavailable. Error: No module named 'botocore'
+[92m02:35:15 - LiteLLM:WARNING[0m: common_utils.py:24 - litellm: could not pre-load sagemaker-runtime response stream shape — SageMaker event-stream decoding will be unavailable. Error: No module named 'botocore'
+=== Paper baseline run_3 @ 2026-06-06 02:35:16 ===
+  target:  dvd
+  state:   paper_run_3_1780684516
+  output:  <MSFV_ROOT>/experiments/baseline_noverify_nopoc/run_3
+  backends: ALL = vllm:nemotron-120b
+  ablation: AISEC_DISABLE_POC_VALIDATOR=1 AISEC_DISABLE_VERIFY=1
+
+
+
+
+=== run_3 done in 108m 9s ===
+  findings: 217
+  by layer: {4: 216, 5: 1}
+  by severity: {'ERROR': 23, 'WARNING': 67, 'INFO': 126, '?': 1}
+

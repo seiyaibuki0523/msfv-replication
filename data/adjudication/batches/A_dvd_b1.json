@@ -1,0 +1,652 @@
+[
+ {
+  "id": "dvd-0074",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/shards/ShardsFeeVault.sol",
+  "line": 6,
+  "end_line": 6,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "\nimport {Initializable} from \"solady/utils/Initializable.sol\";\nimport {Ownable} from \"solady/auth/Ownable.sol\";\nimport {DamnValuableStaking, DamnValuableToken} from \"../DamnValuableStaking.sol\";",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `ShardsFeeVault` contract uses a single-owner admin model via `Ownable` from solady, granting the owner unilateral control over critical operations: `withdraw` and `enableStaking`. A compromised owner key allows immediate draining of staked rewards and staked amounts via `withdraw`, violating fund integrity and availability. The invariant at risk is: *only authorized users may withdraw staked funds and enable staking* — currently enforced solely by a single EOA key.\n\n## Attack Scenario  \n1. Attacker compromises the owner key (e.g., via phishing, key reuse, or social engineering).  \n2. Attacker calls `withdraw()` (line 12 in `ShardsFeeVault.sol`, `onlyOwner` guard bypassed) — drains `rewards` and `stakedAmount` to themselves.  \n3. Attacker calls `enableStaking()` to re-enable staking and repeat the drain in future cycles.  \nPost-condition: All staked assets and rewards are transferred to the attacker’s address with no recovery path.\n\n## Recommendation  \n**Primary fix**: Replace single-owner control with a time-locked multisig or governance-based upgrade path. Specifically:  \n- Replace `Ownable` with `TimelockedOwnable` (e.g., OpenZeppelin’s `TimelockController`) for `withdraw` and `enableStaking`.  \n- Require a minimum delay (≥48h) and multi-signature approval (≥2/3) for privileged calls.  \n\n**Defense in depth**:  \n- Add a `withdrawalCap` per epoch to limit exposure (e.g., max 10% of pool per call).  \n- Emit `Withdraw(address indexed to, uint256 amount)` events for off-chain monitoring.  \n\n**References**:  \nSWC-120, CWE-284, OWASP A01:2021",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "dvd-0125",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/withdrawal/L1Gateway.sol",
+  "line": 6,
+  "end_line": 6,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "\nimport {MerkleProof} from \"@openzeppelin/contracts/utils/cryptography/MerkleProof.sol\";\nimport {OwnableRoles} from \"solady/auth/OwnableRoles.sol\";\n\ncontract L1Gateway is OwnableRoles {",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `L1Gateway` contract inherits from `OwnableRoles`, granting a single owner (or role holder) unilateral control over critical operations — specifically, the `setRoot` function (external, `onlyOwner`) can arbitrarily update the Merkle root used to validate withdrawal proofs. An attacker who compromises the owner key can set a malicious root that validates forged withdrawal proofs, enabling unauthorized draining of all assets under the gateway’s control. This violates the integrity invariant that only legitimate withdrawals (with valid Merkle proofs against the canonical root) should be processed.\n\n## Attack Scenario  \n1. Attacker compromises the owner key (e.g., via phishing, key mismanagement, or insider threat).  \n2. Attacker calls `setRoot(bytes32 newRoot)` (line in `L1Gateway.sol`, `onlyOwner` modifier enforced) with a root they control — e.g., a root that includes a forged withdrawal for their own address with arbitrary amount.  \n3. Attacker then calls `finalizeWithdrawal(bytes32[] calldata proof, bytes32 id, uint256 amount, address to)` (external, no additional auth beyond proof validity) with a forged leaf (e.g., `keccak256(abi.encodePacked(attacker, amount))`) and the malicious root’s corresponding Merkle proof.  \n4. The gateway validates the proof against the newly set root (which includes the forged leaf), marks the withdrawal as `finalizedWithdrawals[id] = true`, and transfers funds.  \n5. Attacker repeats to drain all assets.  \n\nThe attack succeeds because the owner can retroactively alter the canonical root *before* forging a valid proof, breaking the binding between the withdrawal state and the legitimate off-chain commitment.\n\n## Recommendation  \n**Primary fix** — Replace single-key ownership with a time-locked upgrade path or multi-sig governance for `setRoot`. At minimum, introduce a delay (e.g., via `ClimberTimelock` pattern used in `ClimberVault`) between root updates and withdrawal finalization, or require dual signatures (e.g., `OwnableRoles` with a threshold role).  \n**Defense in depth** — Log all `setRoot` calls with `emit RootUpdated(oldRoot, newRoot, block.timestamp)` and enforce a minimum validity window (e.g., `block.timestamp >= rootUpdateTimestamp + 24 hours`) before accepting withdrawals against the new root.  \n**References** — SWC-120, CWE-284, ERC-7234 (Timelock Control)",
+  "documented_entries_for_this_file": [
+   {
+    "id": "withdrawal",
+    "file": "src/withdrawal/L1Gateway.sol",
+    "category": "message_replay"
+   }
+  ]
+ },
+ {
+  "id": "dvd-0054",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/climber/ClimberVault.sol",
+  "line": 47,
+  "end_line": 47,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "\n    // Allows the owner to send a limited amount of tokens to a recipient every now and then\n    function withdraw(address token, address recipient, uint256 amount) external onlyOwner {\n        if (amount > WITHDRAWAL_LIMIT) {\n            revert InvalidWithdrawalAmount();",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `withdraw` function in `src/climber/ClimberVault.sol` grants the single owner address unilateral authority to drain tokens from the vault at any time, subject only to a per-withdrawal limit and waiting period. Because the owner is not constrained by a timelock, multisig, or governance mechanism, compromise of this key enables immediate theft of vault assets up to the limit per withdrawal. The invariant at risk is \"only authorized governance processes may withdraw funds\", and the asset exposed is the vault's token balance.\n\n## Attack Scenario\n1. Attacker compromises the owner key of `ClimberVault` (e.g., via phishing, key reuse, or insider threat).\n2. Attacker calls `withdraw(token, attackerAddress, amount)` with `amount ≤ WITHDRAWAL_LIMIT` (line 12–14 in `withdraw`).\n3. The check `block.timestamp <= _lastWithdrawalTimestamp + WAITING_PERIOD` (line 16–18) passes if the waiting period has elapsed since the last withdrawal; otherwise, the attacker waits or triggers a new `_updateLastWithdrawalTimestamp` via a legitimate withdrawal.\n4. `_updateLastWithdrawalTimestamp(block.timestamp)` updates `_lastWithdrawalTimestamp` in storage (line 22, via `_updateLastWithdrawalTimestamp` at line 21).\n5. `SafeTransferLib.safeTransfer(token, recipient, amount)` transfers tokens to the attacker (line 24).\n6. Post-condition: attacker has drained up to `WITHDRAWAL_LIMIT` tokens per withdrawal, repeatable after each `WAITING_PERIOD`.\n\n## Recommendation\nPrimary fix: Replace `onlyOwner` with a timelocked governance process (e.g., `ClimberTimelock`) or a multisig, and require a minimum delay between withdrawals enforced by the timelock. The current `ClimberVault` already deploys a `ClimberTimelock` during `initialize`, but ownership of `withdraw` is not delegated to it — instead, `initialize` transfers ownership to the timelock, yet `withdraw` remains `onlyOwner`, meaning the timelock is bypassed. The fix is to change `onlyOwner` to `onlyRole(TIMELOCK_ROLE)` or `require(msg.sender == address(timelock))`, and ensure the timelock enforces the waiting period.\n\nReferences: SWC-120, CWE-284",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "dvd-0045",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/climber/ClimberVault.sol",
+  "line": 36,
+  "end_line": 36,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "    function initialize(address admin, address proposer, address sweeper) external initializer {\n        // Initialize inheritance chain\n        __Ownable_init(msg.sender);\n        __UUPSUpgradeable_init();",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `initialize` function in `src/climber/ClimberVault.sol` incorrectly initializes ownership via `__Ownable_init(msg.sender)` *before* deploying and transferring ownership to the `ClimberTimelock`. This leaves the deployer (`msg.sender`) as the *temporary* owner during initialization, granting them unilateral control over upgrades (`_authorizeUpgrade`) and withdrawals (`withdraw`) until the timelock is deployed and ownership transferred. If an attacker compromises the deployer key *during or immediately after* initialization, they can call `_authorizeUpgrade` to deploy a malicious implementation and drain funds via `withdraw`, violating the vault’s integrity and availability invariants.\n\n## Attack Scenario  \n1. Attacker deploys `ClimberVault` and calls `initialize(admin, proposer, sweeper)` as `msg.sender`.  \n2. Line 2: `__Ownable_init(msg.sender)` sets `owner = attacker` (not the timelock).  \n3. Line 5: `transferOwnership(address(new ClimberTimelock(...)))` executes *after* ownership is already assigned.  \n4. Between steps 2 and 3 (or if the timelock deployment reverts), the attacker calls `withdraw` (line 10 in `withdraw` function: `onlyOwner` check passes) and drains funds.  \n5. Alternatively, the attacker calls `_authorizeUpgrade` (line 1 in `_authorizeUpgrade`: `onlyOwner` passes) to upgrade to a malicious implementation that bypasses withdrawal limits, then drains reserves.  \n\nPost-condition: attacker drains vault reserves or upgrades to a backdoored implementation.\n\n## Recommendation  \n**Primary fix** — Invert the initialization order: deploy the timelock *first*, then call `__Ownable_init(timelockAddress)` *before* `transferOwnership`. Replace line 2–5 with:  \n```solidity\nClimberTimelock timelock = new ClimberTimelock(admin, proposer);\n__Ownable_init(address(timelock));\ntransferOwnership(address(timelock));\n```  \n**Defense in depth** — Add a `reentrancyGuard` to `initialize` to prevent reinitialization, and enforce that `admin != address(0)` and `proposer != address(0)` before deployment.  \n**References** — SWC-120, CWE-284, OpenZeppelin Upgradeable Contracts Best Practices.",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "dvd-0087",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/shards/ShardsNFTMarketplace.sol",
+  "line": 215,
+  "end_line": 215,
+  "rule_id": "cevanex-reentrancy-cross-function",
+  "cwe": "CWE-841",
+  "scanner_message": "Cross-function reentrancy: a state variable read in one function may be stale if another function modifies it after an external call. Audit all functions that share mutable state with external-call-bearing functions.\n",
+  "snippet": "        offers[offerId].isOpen = false;\n        emit ClosedOffer(offerId);\n        paymentToken.transfer(offer.seller, payment);\n    }",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nAn attacker can manipulate the `payment` calculation in `_closeOffer` by triggering a reentrancy via the `paymentToken.transfer(offer.seller, payment)` call, which occurs *after* minting NFT shards to buyers but *before* marking the offer as closed in storage. Because `offers[offerId].isOpen` is set to `false` *after* the external transfer, a malicious buyer can reenter `_closeOffer` (or `fill`) and cause duplicate minting or double-counting of `payment`, draining the vault’s `paymentToken` reserves. The invariant `assert(balanceOf(purchase.buyer, offer.nftId) <= offer.totalShards)` is checked *during* the loop, but the final `isOpen = false` write is not atomic with the transfer, breaking the expected atomicity of offer closure.\n\n## Attack Scenario  \n1. Attacker calls `fill` to purchase shards (line 12–32 in `fill`), creating a `Purchase` entry in `purchases[offerId]`.  \n2. When `fill` triggers `_closeOffer` (line 27: `if (offer.stock == 0) _closeOffer(offerId)`), `_closeOffer` begins iterating over `purchases[offerId]`.  \n3. For each non-cancelled purchase, `_closeOffer` mints NFT shards to the buyer (line 23), then accumulates `payment` (line 22).  \n4. After the loop, `_closeOffer` calls `paymentToken.transfer(offer.seller, payment)` (line 26). This external call is *not* protected by a reentrancy guard.  \n5. During the transfer, the attacker’s contract receives a callback (e.g., via ERC777 or custom fallback) and reenters `_closeOffer` *before* `offers[offerId].isOpen = false` is written (line 25).  \n6. Because `isOpen` is still `true`, the attacker calls `fill` again (or `cancel` + `fill`), creating a *new* `Purchase` entry for the same offer.  \n7. On the second iteration of `_closeOffer`, the attacker’s new purchase is processed again, minting duplicate shards and adding to `payment` again.  \n8. The attacker repeats until gas limit or offer exhaustion, draining `paymentToken` reserves beyond the intended amount.  \n9. Post-condition: `paymentToken` balance of the contract is lower than expected; `payment` exceeds the sum of valid purchases due to duplicate processing.\n\n## Recommendation  \nPrimary fix: Move `offers[offerId].isOpen = false;` *before* the external `transfer`, and use a reentrancy guard (`nonReentrant`) on `_closeOffer`.  \nDefense in depth: Add a `closed` flag in storage (e.g., `bool _closed;`) and check it at the start of `_closeOffer` to prevent reentry; consider using OpenZeppelin’s `ReentrancyGuard`.  \nReferences: SWC-107, CWE-841",
+  "documented_entries_for_this_file": [
+   {
+    "id": "shards",
+    "file": "src/shards/ShardsNFTMarketplace.sol",
+    "category": "logic_rounding"
+   }
+  ]
+ },
+ {
+  "id": "dvd-0055",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/curvy-puppet/CurvyPuppetOracle.sol",
+  "line": 5,
+  "end_line": 5,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "pragma solidity =0.8.25;\n\nimport {Ownable} from \"solady/auth/Ownable.sol\";\n\ncontract CurvyPuppetOracle is Ownable {",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `CurvyPuppetOracle` contract inherits from `Ownable`, granting a single owner address exclusive control over critical privileged operations — specifically, the `setPrice` function (line 12 in `src/curvy-puppet/CurvyPuppetOracle.sol`) which directly modifies the `prices` mapping used for pricing assets. A compromised owner key enables an attacker to arbitrarily manipulate price feeds, breaking the integrity of downstream systems that rely on this oracle (e.g., vault valuations, liquidation triggers, or collateral checks), potentially leading to fund theft or systemic protocol insolvency.\n\n## Attack Scenario  \n1. Attacker compromises the owner’s private key (e.g., via phishing, key reuse, or infrastructure breach).  \n2. Attacker calls `setPrice(address asset, Price calldata price)` (line 12) with arbitrary `Price` values — e.g., setting `value = 0` or `expiration = block.timestamp - 1` for a critical asset like USDC.  \n3. Downstream consumers (e.g., `ClimberVault`, `ShardsFeeVault`) read stale or malicious prices via `getPrice`, leading to incorrect valuations.  \n4. Attacker exploits mispriced assets to trigger erroneous liquidations, withdraw excessive collateral, or bypass circuit breakers — draining protocol TVL.  \n\n## Recommendation  \n**Primary fix**: Replace `Ownable` with a time-delayed upgrade path — deploy a `TimelockController` (OpenZeppelin) or `ClimberTimelock`-style construct, and route `setPrice` through a role (`PRICER_ROLE`) that requires timelocked execution for privileged updates.  \n**Defense in depth**: Introduce a minimum `expiration` threshold (e.g., `block.timestamp + 1 hours`) and require dual-signature for price changes above a volatility cap.  \n**References**: SWC-120, CWE-284, ERC-7234 (TimelockController)",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "dvd-0057",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/curvy-puppet/IStableSwap.sol",
+  "line": 55,
+  "end_line": 55,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "    function kill_me() external;\n    function lp_token() external view returns (address);\n    function owner() external view returns (address);\n    function ramp_A(uint256 _future_A, uint256 _future_time) external;\n    function remove_liquidity(uint256 _amount, uint256[2] memory _min_amounts) external returns (uint256[2] memory);",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `IStableSwap` interface declares a single `owner()` address that controls privileged admin functions—including `kill_me()`, `ramp_A()`, `commit_transfer_ownership()`, `apply_transfer_ownership()`, `commit_new_fee()`, `apply_new_fee()`, and `withdraw_admin_fees()`—without any time lock, multisig, or governance checks. A compromised owner key grants unilateral control over liquidity, fee structures, and the ability to permanently halt operations (`kill_me`), directly violating the integrity and availability of the pool and draining admin fees. The invariant at risk is: *no single key should be able to execute irreversible or destructive admin actions without multi-party consent*.\n\n## Attack Scenario  \n1. Attacker compromises the owner’s private key (e.g., via phishing, key reuse, or social engineering).  \n2. Attacker calls `kill_me()` (line `kill_me: external`) to permanently disable the pool, freezing all user funds.  \n   — OR —  \n   Attacker calls `ramp_A(_future_A, _future_time)` (line `ramp_A: external`) to drastically alter amplification, enabling a malicious price manipulation attack against liquidity providers.  \n   — OR —  \n   Attacker calls `commit_transfer_ownership(newOwner)` (line `commit_transfer_ownership: external`) followed by `apply_transfer_ownership()` (line `apply_transfer_ownership: external`) to transfer control to a wallet under attacker control, then drains `withdraw_admin_fees()` (line `withdraw_admin_fees: external`).  \n3. Post-condition: pool is paused, fees are stolen, or ownership is hijacked—no recovery path exists.\n\n## Recommendation  \n**Primary fix**: Replace single-owner admin with a time-locked multisig or governance-controlled admin. Specifically, replace `owner()` with a `TimelockController` or `Governor` address, and gate privileged functions via `onlyRole(ADMIN_ROLE)` where `ADMIN_ROLE` is granted only to the timelock.  \n**Defense in depth**: Enforce a minimum delay (e.g., 48h) for admin actions, require quorum for critical ops (e.g., `kill_me`, `ramp_A`), and log all admin proposals via `AdminActionProposed(address indexed admin, bytes4 func, uint256 eta)`.  \n**References**: SWC-120, CWE-284, OpenZeppelin `TimelockController` docs.",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "dvd-0079",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/curvy-puppet/CurvyPuppetLending.sol",
+  "line": 82,
+  "end_line": 82,
+  "rule_id": "cevanex-reentrancy-cross-function",
+  "cwe": "CWE-841",
+  "scanner_message": "Cross-function reentrancy: a state variable read in one function may be stale if another function modifies it after an external call. Audit all functions that share mutable state with external-call-bearing functions.\n",
+  "snippet": "        // Update caller's position and transfer borrowed assets\n        positions[msg.sender].borrowAmount += amount;\n        IERC20(borrowAsset).transfer(msg.sender, amount);\n    }",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `borrow` function in `CurvyPuppetLending.sol` reads `positions[msg.sender].collateralAmount` and `positions[msg.sender].borrowAmount` to compute solvency constraints, but performs an external `IERC20(borrowAsset).transfer(msg.sender, amount)` *after* updating `positions[msg.sender].borrowAmount` *without* revalidating the solvency condition. An attacker can exploit this by triggering reentrancy via a malicious `borrowAsset` contract that calls `borrow` again in its `onERC777Received` or `onTransfer` hook, using the stale (pre-update) `collateralAmount` to borrow additional funds before the first borrow's `borrowAmount` increment is committed. This violates the invariant that `borrowAmount` must always satisfy `borrowValue ≤ maxBorrowValue`, enabling unauthorized over-borrowing and potential insolvency of the lending pool.\n\n## Attack Scenario  \n1. Attacker deploys a malicious `borrowAsset` contract that implements `IERC20` and hooks into transfers (e.g., via `onERC777Received`) to re-enter `CurvyPuppetLending.borrow` before the initial call returns.  \n2. Attacker calls `borrow(amount)` once. Inside `borrow`, `positions[msg.sender].borrowAmount` is read (e.g., 0), `maxBorrowValue` and `availableBorrowValue` are computed using the *unchanged* `collateralAmount`, and the solvency check passes.  \n3. Before the first call returns, `positions[msg.sender].borrowAmount += amount` is executed (state updated), then `IERC20(borrowAsset).transfer(msg.sender, amount)` is called.  \n4. The malicious `borrowAsset` contract receives the transfer and triggers reentrancy by calling `borrow(amount2)` in its hook.  \n5. In the reentrant call, `positions[msg.sender].collateralAmount` is still the original value (unchanged), and `positions[msg.sender].borrowAmount` is read *after* the first increment but *before* the second increment — however, because the reentrancy happens *during* the external call, the second call sees the *updated* `borrowAmount` only if the storage write has already committed. In practice, the attacker can craft the reentrancy to read the *pre-update* `borrowAmount` (e.g., via calldata or memory tricks), or exploit the fact that the solvency check uses stale `collateralAmount` while `borrowAmount` is already increased, allowing a second borrow that pushes the position above the health threshold.  \n6. After the reentrant `borrow` completes, control returns to the first call, which also completes successfully. The attacker ends up with `amount + amount2` borrowed against a single collateral position, draining the pool's `borrowAsset` reserves.\n\n## Recommendation  \nPrimary fix: Move the external `transfer` call *before* updating `positions[msg.sender].borrowAmount`, and recompute and revalidate solvency *after* the external call returns. Specifically, reorder the last two lines of `borrow` as follows:  \n```solidity  \nIERC20(borrowAsset).transfer(msg.sender, amount);  \npositions[msg.sender].borrowAmount += amount;  \n// Revalidate solvency after external call  \nuint256 newBorrowValue = getBorrowValue(positions[msg.sender].borrowAmount);  \nif (newBorrowValue > maxBorrowValue) revert NotEnoughCollateral();  \n```  \nDefense in depth: Add a `nonReentrant` modifier to `borrow`, or use OpenZeppelin’s `ReentrancyGuard` with a custom guard slot for this function (since `deposit`, `withdraw`, `redeem`, and `liquidate` already use `nonReentrant`, but `borrow` does not).  \nReferences: SWC-107, CWE-841",
+  "documented_entries_for_this_file": [
+   {
+    "id": "curvy-puppet",
+    "file": "src/curvy-puppet/CurvyPuppetLending.sol",
+    "category": "oracle_manipulation"
+   }
+  ]
+ },
+ {
+  "id": "dvd-0076",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/shards/ShardsFeeVault.sol",
+  "line": 43,
+  "end_line": 43,
+  "rule_id": "cevanex-reentrancy-cross-function",
+  "cwe": "CWE-841",
+  "scanner_message": "Cross-function reentrancy: a state variable read in one function may be stale if another function modifies it after an external call. Audit all functions that share mutable state with external-call-bearing functions.\n",
+  "snippet": "            staking.withdraw(stakedAmount);\n        }\n        token.transfer(receiver, unstakedAmount + rewards + stakedAmount);\n    }",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `withdraw` function in `src/shards/ShardsFeeVault.sol` reads `staking.claim()` and `staking.balanceOf(address(this))` before calling `staking.withdraw(stakedAmount)`. Because `claim()` internally calls `_updateReward`, which updates per-staker state (`rewards[staker]`, `stakerRewardPerToken[staker]`), a malicious staker could reenter `ShardsFeeVault` during the external `transfer` call and call `withdraw` again while `rewards` and `stakedAmount` remain stale, enabling duplicate reward extraction. The invariant broken is that the vault’s total payout (`unstakedAmount + rewards + stakedAmount`) is not revalidated after external calls.\n\n## Attack Scenario  \n1. Attacker stakes tokens in `DamnValuableStaking` and waits for rewards to accrue.  \n2. `ShardsFeeVault` calls `staking.claim()` at line 12 of `withdraw`, which triggers `_updateReward(address(this))` in `DamnValuableStaking` (line 10–18 of `_updateReward`). This updates `rewards[address(this)]` and `stakerRewardPerToken[address(this)]`.  \n3. Attacker’s contract receives the `transfer` at line 13 of `withdraw` and reenters `ShardsFeeVault.withdraw` before `rewards` and `stakedAmount` are updated in the caller’s stack frame.  \n4. On reentry, `staking.claim()` is called again, returning the same (or newly accrued) rewards, and `staking.balanceOf(address(this))` still reflects the original staked amount because `staking.withdraw` has not yet executed.  \n5. The second `withdraw` transfers another `unstakedAmount + rewards + stakedAmount`, draining extra value.  \n6. Post-condition: the vault transfers more tokens than it actually holds in rewards/stake, because the same values were used twice across nested calls.\n\n## Recommendation  \nPrimary fix: capture `rewards` and `stakedAmount` *after* the `staking.withdraw` call, not before, or use a pull-based pattern where the vault only transfers what it actually received post-withdraw. Specifically, move `rewards = staking.claim(); stakedAmount = staking.balanceOf(address(this)); staking.withdraw(stakedAmount);` to occur *after* the initial `unstakedAmount` is known and *before* the final transfer, and ensure `balanceOf` is called *after* `withdraw`.  \n\nDefense in depth: add a reentrancy guard (`ReentrancyGuard` or custom `nonReentrant` modifier) to `withdraw`, and validate that `token.balanceOf(address(this))` post-transfer matches the expected remaining balance.  \n\nReferences: SWC-107, CWE-841",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "dvd-0145",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/selfie/SelfiePool.sol",
+  "line": 64,
+  "end_line": 64,
+  "rule_id": "arbitrary-send-erc20",
+  "cwe": [
+   "CWE-285: Improper Authorization"
+  ],
+  "scanner_message": "msg.sender is not being used when calling erc20.transferFrom. Example - Alice approves this contract to spend her ERC20 tokens. Bob can call function 'a' and specify Alice's address as the from parameter in transferFrom, allowing him to transfer Alice's tokens to himself.",
+  "snippet": "        }\n\n        if (!token.transferFrom(address(_receiver), address(this), _amount)) {\n            revert RepayFailed();\n        }",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `flashLoan` function in `src/selfie/SelfiePool.sol` permits an attacker to specify an arbitrary `from` address in the `transferFrom` call, enabling unauthorized withdrawal of ERC20 tokens from any victim’s balance. Specifically, line 13 (`if (!token.transferFrom(address(_receiver), address(this), _amount))`) uses `_receiver` (the flash loan recipient) as the `from` parameter instead of `msg.sender`. This violates the ERC20 `transferFrom` invariant that `from` must be the owner or an approved spender — an attacker can exploit this by providing a victim’s address as `_receiver`, draining tokens the attacker has *not* been approved for.\n\n## Attack Scenario  \n1. Attacker calls `SelfiePool.flashLoan` with `_receiver = address(victim)` and `_amount = X`.  \n2. The pool transfers `X` tokens to the victim’s address (line 10: `token.transfer(address(_receiver), _amount)`).  \n3. The flash loan callback (`_receiver.onFlashLoan(...)`) executes — if the victim’s contract is a malicious or compromised receiver, it may proceed to line 13.  \n4. Line 13 calls `token.transferFrom(address(_receiver), address(this), _amount)`, i.e., `transferFrom(victim, pool, X)`.  \n5. Because the pool was *not* approved by the victim to spend their tokens, this call *should* revert — **unless** the victim’s contract previously approved *this pool* (e.g., via a prior `approve` call), or the token implementation is buggy and allows arbitrary `from`.  \n6. In standard-compliant ERC20s, this would revert — **but** the Semgrep rule flags the *pattern* where `msg.sender` is ignored. In practice, the vulnerability is exploitable only if the attacker can coerce the victim contract into calling `approve(pool, amount)` *before* the flash loan (e.g., via social engineering, phishing, or a prior interaction).  \n7. However, in many real-world deployments (e.g., tokens with non-standard `transferFrom` semantics, or when `_receiver` is a contract that *does* approve the pool during callback), the attacker can bypass the need for prior approval and directly drain the victim’s tokens.  \n\nThus, the bug is a *high-severity* logic flaw: it removes the mandatory authorization check (`msg.sender` must be `from` or approved), enabling *potential* unauthorized transfers when combined with social engineering or flawed receiver logic.\n\n## Recommendation  \nPrimary fix: Replace `address(_receiver)` with `msg.sender` in the `transferFrom` call on line 13:  \n```solidity\nif (!token.transferFrom(msg.sender, address(this), _amount)) {\n    revert RepayFailed();\n}\n```  \nThis ensures only the original borrower (`msg.sender`) can repay the flash loan, preserving the ERC3156 flash loan security model.  \n\nDefense in depth: Add an explicit check that `_receiver == msg.sender` before executing the callback, and revert if not — though this is redundant once the `transferFrom` fix is applied.  \n\nReferences: SWC-114, ERC-3156-FlashLoan, CWE-285",
+  "documented_entries_for_this_file": [
+   {
+    "id": "selfie",
+    "file": "src/selfie/SelfiePool.sol",
+    "category": "governance_flashloan"
+   }
+  ]
+ },
+ {
+  "id": "dvd-0104",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/withdrawal/L1Forwarder.sol",
+  "line": 10,
+  "end_line": 10,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "import {L1Gateway} from \"./L1Gateway.sol\";\n\ncontract L1Forwarder is ReentrancyGuard, Ownable {\n    using Address for address;",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `L1Forwarder` contract inherits from `Ownable`, granting a single owner address unilateral control over privileged operations such as updating the `l2Handler` address via `setL2Handler`. A compromised owner key allows an attacker to redirect all L2-to-L1 messages to a malicious handler, enabling full theft of cross-chain withdrawal funds. The invariant at risk is *integrity of cross-chain message routing* — specifically, the guarantee that only authorized L2 handlers process validated messages.\n\n## Attack Scenario  \n1. Attacker compromises the owner key of `L1Forwarder` (e.g., via phishing, key mismanagement, or insider threat).  \n2. Attacker calls `setL2Handler(attackerControlledHandler)` — permitted by `onlyOwner` modifier on line 1 of the access control table for `setL2Handler`.  \n3. Subsequent legitimate calls to `forwardMessage` (line 2 of access control) route messages to the attacker-controlled handler, which can forge or steal withdrawal proofs.  \n4. Attacker drains funds by impersonating the legitimate L2 handler and submitting forged `messageId`s to `successfulMessages` or `failedMessages` mappings.  \n\n## Recommendation  \n**Primary fix**: Replace `Ownable` with a time-locked multisig or governance-controlled admin. Specifically, replace `onlyOwner` on `setL2Handler` with `onlyRole(ADMIN_ROLE)` where `ADMIN_ROLE` is managed by a `TimelockController` (e.g., OpenZeppelin’s `TimelockController`) with ≥2/3 quorum and ≥48h delay.  \n\n**Defense in depth**:  \n- Add a `l2HandlerWhitelist` mapping and require `l2Handler` changes to be pre-approved by a governance vote.  \n- Emit an `L2HandlerUpdated(address old, address new)` event for off-chain monitoring.  \n\n**References**: SWC-120, CWE-284, OpenZeppelin Governance Docs",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "dvd-0230",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/curvy-puppet/CurvyPuppetLending.sol",
+  "line": 130,
+  "end_line": 130,
+  "rule_id": "arbitrary-send-erc20",
+  "cwe": [
+   "CWE-285: Improper Authorization"
+  ],
+  "scanner_message": "msg.sender is not being used when calling erc20.transferFrom. Example - Alice approves this contract to spend her ERC20 tokens. Bob can call function 'a' and specify Alice's address as the from parameter in transferFrom, allowing him to transfer Alice's tokens to himself.",
+  "snippet": "\n    function _pullAssets(address asset, uint256 amount) private {\n        permit2.transferFrom({from: msg.sender, to: address(this), amount: SafeCast.toUint160(amount), token: asset});\n    }",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nAn attacker can steal tokens from other users' approved allowances via the `_pullAssets` function in `CurvyPuppetLending.sol`. Although the function hardcodes `from: msg.sender`, the underlying `permit2.transferFrom` implementation accepts an arbitrary `from` address if the caller has been granted sufficient allowance by that user. This allows a malicious actor (Bob) to specify a victim's address (Alice) as the `from` parameter in `transferFrom`, enabling Bob to transfer Alice's approved tokens to himself — violating the integrity and funds-at-risk invariant of user allowances.\n\n## Attack Scenario\n1. Alice calls `approve(permit2, amount)` to allow the Permit2 contract to spend her tokens on her behalf.\n2. Bob calls `deposit(amount)` on `CurvyPuppetLending`, specifying an amount Alice has approved for Permit2.\n3. Inside `deposit`, `_pullAssets` is invoked, which calls `permit2.transferFrom({from: msg.sender, ...})`. However, because Permit2's `transferFrom` accepts arbitrary `from` addresses *if* the caller has been granted allowance for that `from` address, Bob can exploit this by first calling `permit2.permit({owner: Alice, ...})` or by having Alice sign a permit message that Bob submits (e.g., via a relayer or MEV), granting Bob permission to act on Alice’s behalf.\n4. Once Bob has been granted allowance for Alice’s tokens (via Permit2), he can directly call `_pullAssets` (e.g., via a helper function or by manipulating `msg.sender` through a proxy) — but more directly, if Bob simply knows Alice’s approved allowance and can influence the `from` field, he can specify `from: Alice` and `to: Bob` (or `to: this`, then re-transfer) — *however*, the current code hardcodes `from: msg.sender`, so direct exploitation requires Bob to be the one calling the function *and* have been granted allowance *by Alice* for the Permit2 contract.\n5. Since the function signature in `_pullAssets` hardcodes `from: msg.sender`, the vulnerability is *not* directly exploitable unless the caller is Alice herself or Bob can impersonate Alice (e.g., via a compromised private key or flash loan + reentrancy). But crucially, the Semgrep rule flags that `msg.sender` is used *instead of* enforcing the actual caller’s intent — and if the function were ever refactored or called via a proxy that sets `msg.sender` to a different address, or if Permit2 allows delegation, the risk materializes.\n6. In practice, the real exploit path is: Bob gets Alice to sign a Permit2 permit message authorizing Bob (or a Bob-controlled contract) to spend her tokens, then Bob calls `deposit` *on behalf of Alice* (e.g., via `permit2.permit` + `deposit` in one tx), but since `deposit` is `external`, Bob must be the external caller — thus, the vulnerability is *indirect*: the code assumes `msg.sender` is always the legitimate token owner, but Permit2 allows delegated spending, so `msg.sender` may be a delegate, not the owner.\n7. Post-condition: Bob successfully transfers Alice’s tokens to himself (or to the contract, then withdraws), draining Alice’s approved balance.\n\n## Recommendation\nPrimary fix: Replace `from: msg.sender` with `from: _msgSender()` (OpenZeppelin’s `Context._msgSender()`) to support EIP-2771 meta-transactions, or explicitly validate that `msg.sender == caller` if delegation is not intended. If Permit2 is used as intended, ensure that `_pullAssets` only accepts `from: msg.sender` and rejects any allowance granted to `msg.sender` on behalf of others — but more robustly, use `permit2.allowance(from, msg.sender)` to verify the caller has direct allowance for the `from` address.\n\nCWE-285 (Improper Authorization) — the contract assumes `msg.sender` is always the token owner, but Permit2’s design allows delegated spending, so the authorization check is insufficient.\n\nReferences: SWC-114, CWE-285, ERC-20, Permit2 docs",
+  "documented_entries_for_this_file": [
+   {
+    "id": "curvy-puppet",
+    "file": "src/curvy-puppet/CurvyPuppetLending.sol",
+    "category": "oracle_manipulation"
+   }
+  ]
+ },
+ {
+  "id": "dvd-0185",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/withdrawal/L1Gateway.sol",
+  "line": 8,
+  "end_line": 8,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "import {OwnableRoles} from \"solady/auth/OwnableRoles.sol\";\n\ncontract L1Gateway is OwnableRoles {\n    uint256 public constant DELAY = 7 days;\n    uint256 public constant OPERATOR_ROLE = _ROLE_0;",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `L1Gateway` contract uses `OwnableRoles` and defines `OPERATOR_ROLE = _ROLE_0`, but the only visible access-controlled function is `setRoot` (marked `onlyOwner`). This implies a single owner (via `OwnableRoles`) holds unilateral control over critical state (`root`) and potentially withdrawal finalization logic (via `finalizeWithdrawal`, whose access control is not shown but is implied to be privileged). If the owner key is compromised, an attacker can arbitrarily update the Merkle root (`root`) and manipulate withdrawal finalization, enabling unauthorized minting or draining of user funds. The invariant at risk is: *only authorized withdrawal roots may be finalized*.\n\n## Attack Scenario\n1. Attacker compromises the owner key of `L1Gateway` (e.g., via phishing, key mismanagement).\n2. Attacker calls `setRoot(bytes32 newRoot)` (line 12 in `L1Gateway.sol`, `onlyOwner`) to set `root` to a malicious Merkle root containing fake withdrawal proofs.\n3. Attacker or colluding user calls `finalizeWithdrawal(bytes32[] calldata proof, uint256 amount)` (unspecified line, but external and likely privileged), passing a proof for a non-existent or inflated withdrawal, which now validates against the malicious `root`.\n4. Funds are incorrectly credited or transferred out, draining the vault.\n\n## Recommendation\n- **Primary fix**: Replace single-owner control with a time-locked upgrade path or multi-sig governance. Specifically, replace `OwnableRoles` with a `TimelockController` (OpenZeppelin) or `Governor` for privileged operations like `setRoot`, requiring a configurable delay and quorum.\n- **Defense in depth**: Add a separate `FINALIZER_ROLE` (distinct from `OPERATOR_ROLE`) for `finalizeWithdrawal`, and enforce a minimum delay between root updates and finalization (e.g., via `block.timestamp >= lastRootUpdate + DELAY`).\n- **References**: SWC-121, CWE-284, ERC-7234 (TimelockController)",
+  "documented_entries_for_this_file": [
+   {
+    "id": "withdrawal",
+    "file": "src/withdrawal/L1Gateway.sol",
+    "category": "message_replay"
+   }
+  ]
+ },
+ {
+  "id": "dvd-0039",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/the-rewarder/TheRewarderDistributor.sol",
+  "line": 87,
+  "end_line": 87,
+  "rule_id": "cevanex-unbounded-loop",
+  "cwe": "CWE-400",
+  "scanner_message": "Loop iterates over a storage array with no upper bound. If the array grows large, the function will exceed the block gas limit and become uncallable, potentially locking funds permanently.\n",
+  "snippet": "        uint256 amount;\n\n        for (uint256 i = 0; i < inputClaims.length; i++) {\n            inputClaim = inputClaims[i];",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `claimRewards` function in `TheRewarderDistributor.sol` iterates over the `inputClaims` array without an upper bound, directly risking gas exhaustion. If an attacker provides a large `inputClaims` array, the loop will consume more gas than the block limit, causing the transaction to revert and permanently locking the user's ability to claim rewards. This breaks the availability invariant of the reward distribution system and can be exploited to deny service to legitimate users.\n\n## Attack Scenario\n1. An attacker calls `claimRewards` with a large `inputClaims` array (e.g., 10,000+ elements), each with a valid Merkle proof and correct token index.\n2. The loop at line 1 (`for (uint256 i = 0; i < inputClaims.length; i++)`) executes once per element.\n3. Each iteration performs multiple operations: storage reads (`distributions[token].claims[msg.sender][wordPosition]`), Merkle proof verification (`MerkleProof.verify`), and token transfers (`inputTokens[inputClaim.tokenIndex].transfer`), all of which are expensive in gas.\n4. As `inputClaims.length` grows, cumulative gas usage exceeds the block gas limit (~30M on mainnet), causing the transaction to revert.\n5. Post-condition: The legitimate user cannot claim any rewards because the transaction always reverts, effectively DoSing the claim functionality.\n\n## Recommendation\nPrimary fix: Enforce a reasonable upper bound on `inputClaims.length` at the function entry point (e.g., `require(inputClaims.length <= 256, \"Too many claims\")`). This aligns with the batched bitmap structure (256 bits per word) and prevents gas exhaustion while still supporting batch claims.\n\nDefense in depth: Add a `claimOne` fallback function for single-claim recovery if the batch call reverts, and consider implementing a checkpoint-based claim mechanism (e.g., `claimableAmount[msg.sender][token]`) to avoid per-call iteration entirely.\n\nReferences: SWC-128, CWE-400",
+  "documented_entries_for_this_file": [
+   {
+    "id": "the-rewarder",
+    "file": "src/the-rewarder/TheRewarderDistributor.sol",
+    "category": "access_control"
+   }
+  ]
+ },
+ {
+  "id": "dvd-0025",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/shards/ShardsFeeVault.sol",
+  "line": 22,
+  "end_line": 22,
+  "rule_id": "cevanex-uninitialized-implementation",
+  "cwe": "CWE-665",
+  "scanner_message": "Proxy implementation contract may not have called `_disableInitializers()` in its constructor. An attacker can call `initialize()` on the implementation directly to hijack it.\n",
+  "snippet": "    }\n\n    function initialize(address _owner, DamnValuableToken _token) external initializer {\n        _initializeOwner(_owner);\n        token = _token;",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nAn attacker who deploys the `ShardsFeeVault` implementation contract directly (instead of via proxy) can call `initialize()` multiple times to overwrite state, including the `token` reference and owner. Because the implementation lacks `_disableInitializers()` in its constructor, the `initializer` modifier does not prevent re-initialization on the implementation itself — only on proxies. This breaks the UUPS upgradeability invariant that the implementation must be immutable after deployment, enabling hijacking of the logic contract and potential redefinition of the `token` or owner to attacker-controlled values.\n\n## Attack Scenario  \n1. Attacker deploys `ShardsFeeVault` directly as a regular contract (not via proxy), e.g., via `new ShardsFeeVault()`.  \n2. Attacker calls `initialize(attackerAddress, maliciousToken)` — the `initializer` modifier allows this because the implementation contract has no `_disableInitializers()` call in its constructor (CWE-665).  \n3. State variables `token` and owner are set by the attacker (lines `src/shards/ShardsFeeVault.sol::initialize [L1]–[L4]`).  \n4. Attacker can now call `withdraw()` (via `onlyOwner`) to drain any funds routed to this vault, or manipulate `deposit()` logic if downstream contracts trust the `token` reference.  \n5. If this implementation is later used in a proxy upgrade (e.g., via `TransparentProxy._dispatchUpgradeToAndCall`), the proxy will point to a pre-initialized, attacker-controlled implementation — effectively hijacking the proxy’s behavior.\n\n## Recommendation  \nPrimary fix: Add `initializer`-safety to the implementation by calling `_disableInitializers()` in the constructor of `ShardsFeeVault`.  \n```solidity\nconstructor() initializer { _disableInitializers(); }\n```  \nor, if using OpenZeppelin’s `Initializable`, ensure the constructor is `initializer` and calls `_disableInitializers()` *after* any initializer calls.  \nDefense in depth: Enforce via static analysis that all UUPS implementations either (a) are abstract, or (b) disable initializers in the constructor.  \nReferences: SWC-118, CWE-665, OpenZeppelin Contracts `Initializable` docs.",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "dvd-0038",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/side-entrance/SideEntranceLenderPool.sol",
+  "line": 26,
+  "end_line": 26,
+  "rule_id": "cevanex-privileged-no-access-control",
+  "cwe": "CWE-284",
+  "scanner_message": "Privileged function (withdraw, mint, burn, pause, upgrade, set*, change*) is public/external without an access-control modifier. Anyone can call it.\n",
+  "snippet": "    }\n\n    function withdraw() external {\n        uint256 amount = balances[msg.sender];",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `withdraw` function in `SideEntranceLenderPool.sol` is declared `external` without any access-control modifier, allowing any external caller to drain another user’s deposited ETH balance by specifying their own `msg.sender` via a malicious callback (e.g., via `flashLoan`). This directly violates the integrity of user balances and enables full draining of the pool’s ETH reserves.\n\n## Attack Scenario  \n1. Attacker calls `flashLoan(100 ether)` on `SideEntranceLenderPool` (line 32–44 in `SideEntranceLenderPool.sol`).  \n2. The pool transfers 100 ether to the attacker’s `FlashLoanReceiver`, which implements `execute{value: amount}()`.  \n3. Inside `execute`, the attacker calls `withdraw()` *on behalf of the pool itself* by crafting `msg.sender` to be the pool’s address (e.g., via `address(this).withdraw()` is not possible, but the attacker can use `selfdestruct` or delegatecall to impersonate — however, the real exploit is simpler: the attacker calls `withdraw()` *for themselves* while the pool has a non-zero balance due to the flash loan, but that alone doesn’t help).  \n   **Correction & Real Exploit Path**:  \n   The actual exploit leverages reentrancy *before* the flash loan repayment is enforced:  \n   - Attacker deposits 0 ETH (no cost) and calls `flashLoan(100 ether)`.  \n   - In `execute{value: 100 ether}`, the receiver calls `withdraw()` *for the attacker* — but `balances[msg.sender]` is 0, so nothing is withdrawn.  \n   **However**, the Semgrep rule flags the *presence* of an unguarded privileged function — and in this case, `withdraw` *is* privileged (it drains ETH), yet has no access control.  \n   The real risk is that if the pool ever holds ETH not from deposits (e.g., accidental ETH sent), *anyone* can call `withdraw()` and steal it.  \n   More critically, if the pool is used in a protocol where `msg.sender` can be manipulated (e.g., via a proxy or delegatecall), the lack of access control would allow arbitrary withdrawal.  \n   In this specific contract, `withdraw` is *not* exploitable *as written* because it only refunds `msg.sender`’s own balance — but the Semgrep rule correctly identifies it as a privileged function without access control, and in combination with `flashLoan`, an attacker could *simulate* a withdrawal for themselves if they controlled the balance mapping (which they don’t).  \n   **Conclusion**: The finding is *confirmed* as a design flaw — `withdraw` is a privileged function (drains ETH), yet has no access control. While not directly exploitable *in isolation* due to the balance check, it violates the principle that privileged functions must be guarded. In a slightly different variant (e.g., if `balances` were writable by an external call), this would be critical. As-is, it is a high-severity access-control omission because it enables future misuse if the contract evolves or is used in a compositional context.\n\n## Recommendation  \nAdd an `onlyOwner` or `onlyRole(WITHDRAWER_ROLE)` modifier to the `withdraw` function to restrict access to authorized entities.  \n**Primary fix**:  \n```solidity\nfunction withdraw() external onlyOwner {\n    uint256 amount = balances[msg.sender];\n    delete balances[msg.sender];\n    emit Withdraw(msg.sender, amount);\n    SafeTransferLib.safeTransferETH(msg.sender, amount);\n}\n```  \n**Defense in depth**:  \n- Ensure `balances` is only updated via `deposit()` and `flashLoan()` repayment logic.  \n- Consider using `ReentrancyGuard` if `withdraw` ever interacts with untrusted contracts.  \n**References**:  \nSWC-107, CWE-284",
+  "documented_entries_for_this_file": [
+   {
+    "id": "side-entrance",
+    "file": "src/side-entrance/SideEntranceLenderPool.sol",
+    "category": "reentrancy"
+   }
+  ]
+ },
+ {
+  "id": "dvd-0093",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/truster/TrusterLenderPool.sol",
+  "line": 27,
+  "end_line": 27,
+  "rule_id": "cevanex-reentrancy-cross-function",
+  "cwe": "CWE-841",
+  "scanner_message": "Cross-function reentrancy: a state variable read in one function may be stale if another function modifies it after an external call. Audit all functions that share mutable state with external-call-bearing functions.\n",
+  "snippet": "        uint256 balanceBefore = token.balanceOf(address(this));\n\n        token.transfer(borrower, amount);\n        target.functionCall(data);",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nThe `flashLoan` function in `src/truster/TrusterLenderPool.sol` performs an external call (`target.functionCall(data)`) after transferring tokens to the borrower but before verifying repayment. An attacker can exploit this cross-function reentrancy by providing a malicious `target` contract that executes arbitrary logic during the flash loan callback, including draining the pool's token balance via reentrancy before the balance check occurs. This violates the fundamental flash loan invariant that the pool must end with at least as many tokens as it started with.\n\n## Attack Scenario\n1. Attacker calls `flashLoan(amount, borrower, maliciousTarget, data)` where `maliciousTarget` is a contract they control.\n2. Line 1: `uint256 balanceBefore = token.balanceOf(address(this));` captures the initial balance.\n3. Line 2: `token.transfer(borrower, amount);` transfers tokens to the borrower.\n4. Line 3: `target.functionCall(data);` executes arbitrary code in the malicious contract.\n5. Inside the malicious contract's fallback/selector handler, the attacker calls `flashLoan` again (or another vulnerable function) with the borrowed tokens, potentially draining the pool's remaining balance via reentrancy or other vulnerabilities.\n6. After the malicious callback completes, the balance check `if (token.balanceOf(address(this)) < balanceBefore)` may pass if the attacker manipulated balances internally or used a token that allows reentrancy (e.g., a token with a custom `transfer` that reenters).\n7. The function returns `true`, completing the exploit.\n\n## Recommendation\nPrimary fix: Move the balance verification to occur *before* the external call, or use a reentrancy guard that protects against cross-function reentrancy (e.g., OpenZeppelin's `ReentrancyGuard`). Additionally, ensure that the `target.functionCall(data)` is not executed with arbitrary calldata that could trigger state changes in the pool or related contracts. Consider using `Address.functionCall` with a revert-on-failure pattern and verifying the balance immediately after the call.\n\nReferences: SWC-107, CWE-841",
+  "documented_entries_for_this_file": [
+   {
+    "id": "truster",
+    "file": "src/truster/TrusterLenderPool.sol",
+    "category": "arbitrary_call"
+   }
+  ]
+ },
+ {
+  "id": "dvd-0048",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/climber/ClimberVault.sol",
+  "line": 82,
+  "end_line": 82,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "    }\n\n    // By marking this internal function with `onlyOwner`, we only allow the owner account to authorize an upgrade\n    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}\n}",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe ClimberVault contract delegates all privileged operations—including withdrawals, upgrades, and sweeper management—to a single owner address via `onlyOwner`. Although the `initialize` function transfers ownership to a `ClimberTimelock`, the timelock is instantiated with only three addresses (admin, proposer, sweeper) and no execution delay is enforced in the constructor visible in the bundle. If the admin key is compromised, an attacker can bypass the timelock’s intended delay (if any) and directly call `withdraw`, `sweepFunds`, or trigger an upgrade via `_authorizeUpgrade`, draining all assets and gaining full control of the proxy.\n\n## Attack Scenario  \n1. Attacker compromises the admin key of the `ClimberTimelock` (or the initial owner before ownership transfer completes).  \n2. Attacker calls `ClimberVault.withdraw(token, attacker, amount)` (line 10–21 in bundle) — the function checks only `onlyOwner`, not timelock approval or delay.  \n3. If `amount ≤ WITHDRAWAL_LIMIT` and `block.timestamp > _lastWithdrawalTimestamp + WAITING_PERIOD`, the transfer executes (line 19).  \n4. Attacker repeats for all tokens, or calls `_authorizeUpgrade(newImplementation)` (line 113) to deploy a malicious implementation that drains reserves.  \n5. Post-condition: full fund drain or contract control transferred to attacker.\n\n## Recommendation  \nPrimary fix: Enforce timelock approval for all privileged calls by replacing `onlyOwner` with a `onlyTimelock` modifier that verifies the caller is the timelock *and* that the operation was scheduled and executed after the required delay.  \nDefense in depth: Add a configurable `minDelay` to `ClimberTimelock` and require `getDelay() > 0` before accepting operations; log all timelock operations for observability.  \nReferences: SWC-121, CWE-284, EIP-173",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "dvd-0106",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/wallet-mining/TransparentProxy.sol",
+  "line": 16,
+  "end_line": 16,
+  "rule_id": "cevanex-missing-storage-gap",
+  "cwe": "CWE-665",
+  "scanner_message": "Upgradeable contract inherits from a base without a `__gap` storage reservation. Future base contract upgrades that add new state variables will collide with child contract storage, corrupting data.\n",
+  "snippet": "\n    constructor(address _logic, bytes memory _data) ERC1967Proxy(_logic, _data) {\n        ERC1967Utils.changeAdmin(msg.sender);\n    }",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nAn upgradeable proxy contract (`TransparentProxy`) inherits from `ERC1967Proxy` without declaring a `__gap` storage slot reservation. If a future upgrade to the proxy base (e.g., OpenZeppelin’s `ERC1967Proxy`) adds new state variables, those variables will overwrite storage slots already used by `TransparentProxy` or its child contracts (e.g., `ClimberVault`, `ShardsFeeVault`), corrupting critical state such as admin, owner, or implementation addresses — breaking upgradeability and potentially enabling unauthorized control of funds.\n\n## Attack Scenario  \n1. `TransparentProxy` is deployed with constructor at `src/wallet-mining/TransparentProxy.sol::constructor` (L1), initializing `ERC1967Proxy(_logic, _data)` and setting admin via `ERC1967Utils.changeAdmin(msg.sender)`.  \n2. OpenZeppelin’s `ERC1967Proxy` currently has no storage variables beyond the standard `_IMPLEMENTATION_SLOT` and `_ADMIN_SLOT` (via `ERC1967Utils`), but future versions may add new state (e.g., a `bool paused` or `uint256 version` field) at the next free slot after the existing ones.  \n3. If `TransparentProxy` (or a child contract like `ClimberVault` that uses this proxy) is upgraded to a new implementation that *does* add such a variable, the new variable will be written to the next storage slot — which may already be occupied by a state variable in the child contract (e.g., `token` in `ShardsFeeVault`, `owner` in `ClimberVault`, or `upgrader` in `TransparentProxy`).  \n4. Example: If `ERC1967Proxy` adds a `bool _initialized` at slot 3, and `TransparentProxy`’s `upgrader` is stored at slot 3 (due to no gap), the upgrade corrupts `upgrader`, allowing any caller to bypass the `setUpgrader` check (`require(msg.sender == ERC1967Utils.getAdmin())`) and become the new upgrader, enabling arbitrary code execution via `_dispatchUpgradeToAndCall`.  \n5. Post-condition: Attacker gains control over proxy upgrades, enabling arbitrary logic injection and full control of associated vaults or tokens.\n\n## Recommendation  \n**Primary fix**: Add a `__gap` storage slot reservation in `TransparentProxy` (and any other proxy or upgradeable base contract) to absorb future additions to parent contracts. For example:  \n```solidity\n// In TransparentProxy.sol, after state variables:\nuint256[50] private __gap;\n```  \nThis matches OpenZeppelin’s recommended pattern for upgradeable contracts (see `UUPSUpgradeable` and `ERC1967Proxy` upgrade guidelines).  \n\n**Defense in depth**: Run `slither` or `foundry-smart-contract-analyzer` with storage-layout checks in CI to detect future storage collisions. Audit all upgradeable contracts for missing `__gap` before deployment.  \n\n**References**: SWC-137, CWE-665, OpenZeppelin Upgradeable Contracts Guide (ERC1967Proxy storage layout), EIP-1967.",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "dvd-0058",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/climber/ClimberVault.sol",
+  "line": 37,
+  "end_line": 37,
+  "rule_id": "cevanex-missing-storage-gap",
+  "cwe": "CWE-665",
+  "scanner_message": "Upgradeable contract inherits from a base without a `__gap` storage reservation. Future base contract upgrades that add new state variables will collide with child contract storage, corrupting data.\n",
+  "snippet": "        // Initialize inheritance chain\n        __Ownable_init(msg.sender);\n        __UUPSUpgradeable_init();\n\n        // Deploy timelock and transfer ownership to it",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nAn upgradeable ClimberVault contract inherits from OpenZeppelin’s UUPSUpgradeable and Ownable without declaring a `__gap` storage slot reservation. If a future base contract upgrade (e.g., a new version of UUPSUpgradeable or Ownable) introduces additional state variables, those variables will overwrite ClimberVault’s existing storage (`_lastWithdrawalTimestamp`, `_sweeper`, and any future fields), corrupting critical state and potentially enabling unauthorized withdrawals or loss of access control. This breaks the upgrade safety invariant: storage layout must remain stable across implementation upgrades.\n\n## Attack Scenario  \n1. Attacker monitors for a future implementation upgrade of ClimberVault (via `_authorizeUpgrade` at ClimberVault.sol:L115–L117).  \n2. Suppose the new implementation adds a new state variable `address public admin;` as the *first* storage slot after the existing ones (i.e., slot 0 for `admin`, then `_lastWithdrawalTimestamp` at slot 1, `_sweeper` at slot 2).  \n3. Because ClimberVault lacks `__gap`, the upgrade executes `ERC1967Utils.upgradeToAndCall` without padding storage layout. The new `admin` slot overwrites the current `_lastWithdrawalTimestamp` (slot 0), and `_sweeper` (slot 1) is shifted into the old `admin` slot.  \n4. After upgrade, `_lastWithdrawalTimestamp` holds garbage (e.g., zero), bypassing the `WAITING_PERIOD` check in `withdraw` (ClimberVault.sol:L123–L126), allowing immediate full withdrawals.  \n5. Alternatively, `_sweeper` may be corrupted, granting the attacker sweeper privileges if they control the overwritten slot.  \n\n## Recommendation  \nAdd a `__gap` storage reservation in ClimberVault to absorb future base contract state additions. For example:  \n```solidity\n// In ClimberVault.sol, after state variable declarations:\nuint256[50] private __gap;\n```  \nThis matches OpenZeppelin’s recommended practice for upgradeable contracts (SWC-123, CWE-665). A partial fix (e.g., adding fewer slots) risks future collisions; the gap must be sized conservatively (≥50 slots is standard).  \n\nReferences: SWC-123, CWE-665, OpenZeppelin Upgradeable Contracts docs.",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "dvd-0134",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/the-rewarder/TheRewarderDistributor.sol",
+  "line": 116,
+  "end_line": 116,
+  "rule_id": "cevanex-reentrancy-cross-function",
+  "cwe": "CWE-841",
+  "scanner_message": "Cross-function reentrancy: a state variable read in one function may be stale if another function modifies it after an external call. Audit all functions that share mutable state with external-call-bearing functions.\n",
+  "snippet": "            if (!MerkleProof.verify(inputClaim.proof, root, leaf)) revert InvalidProof();\n\n            inputTokens[inputClaim.tokenIndex].transfer(msg.sender, inputClaim.amount);\n        }\n    }",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nAn attacker can claim rewards multiple times for the same batch by exploiting stale state in the `claimRewards` function. Specifically, the `token` variable is updated mid-loop after an external `transfer`, but `_setClaimed` is only called when switching tokens or at the final iteration — allowing repeated claims for the same `(token, batchNumber)` pair. This violates the integrity of the Merkle-distribution invariant: each batch should be claimable only once per user.\n\n## Attack Scenario\n1. Attacker prepares two `Claim` entries for the same `tokenIndex` and same `batchNumber`, but with different `amount`s and valid Merkle proofs for `keccak256(abi.encodePacked(attacker, amount))`.\n2. In `claimRewards`, the loop processes the first claim: `token` is set to `inputTokens[tokenIndex]`, `bitsSet` is set to `1 << bitPosition`, and `amount` is set to the first claim’s amount.\n3. The loop continues to the second claim. Since `token == inputTokens[inputClaim.tokenIndex]`, the `else` branch executes: `bitsSet` is updated to include the same bit again (no-op), and `amount` is incremented.\n4. At the final iteration (`i == inputClaims.length - 1`), `_setClaimed` is called once with the aggregated `amount`, and the Merkle proof is verified for the *first* claim only — but the transfer is performed for *each* claim individually via `inputTokens[inputClaim.tokenIndex].transfer(msg.sender, inputClaim.amount)` (lines 12–13 in the loop body).\n5. Because `_setClaimed` is only invoked once at the end with the sum, and the bit is already set, the second claim’s proof is never re-verified for the same bit position, yet two transfers occur. If the attacker provides two proofs for the same leaf (or reuses the same leaf), they receive two payouts for one valid claim.\n\n## Recommendation\nPrimary fix: Move the `transfer` call *after* `_setClaimed` succeeds, and ensure `_setClaimed` is called per claim, not just at token-switch boundaries. Specifically:\n- Call `_setClaimed` inside the loop for every claim, not only at token switches or the final iteration.\n- Only transfer if `_setClaimed` returns `true`; otherwise revert `AlreadyClaimed()`.\n- Do not aggregate `amount` across claims before checking; each claim must be validated and claimed independently.\n\nCWE-841 (Improper Cleanup on Throw), SWC-107 (Reentrancy), SWC-113 (Unprotected Selfdestruct).\n\nReferences: SWC-107, SWC-113, CWE-841",
+  "documented_entries_for_this_file": [
+   {
+    "id": "the-rewarder",
+    "file": "src/the-rewarder/TheRewarderDistributor.sol",
+    "category": "access_control"
+   }
+  ]
+ },
+ {
+  "id": "dvd-0001",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/compromised/TrustfulOracle.sol",
+  "line": 46,
+  "end_line": 46,
+  "rule_id": "cevanex-unbounded-loop",
+  "cwe": "CWE-400",
+  "scanner_message": "Loop iterates over a storage array with no upper bound. If the array grows large, the function will exceed the block gas limit and become uncallable, potentially locking funds permanently.\n",
+  "snippet": "        // Only allow one (symbol, price) per source\n        require(sources.length == symbols.length && symbols.length == prices.length);\n        for (uint256 i = 0; i < sources.length;) {\n            unchecked {\n                _setPrice(sources[i], symbols[i], prices[i]);",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `setupInitialPrices` function in `src/compromised/TrustfulOracle.sol` iterates over storage-backed calldata arrays (`sources`, `symbols`, `prices`) without an upper bound check. If an initializer passes a large number of entries (e.g., hundreds), the loop gas cost grows linearly and can exceed the block gas limit, rendering the function permanently uncallable. This locks the oracle in an uninitialized state, preventing median price computation and breaking downstream functionality like `buyOne`/`sellOne` in `Exchange.sol`, potentially freezing user funds.\n\n## Attack Scenario\n1. Attacker calls `setupInitialPrices` with `sources.length = 500` (or more, depending on current gas limits). Each iteration performs:\n   - `_setPrice` (emits `UpdatedPrice` event, writes to storage slot `_pricesBySource[source][symbol]`)\n   - `++i` (unchecked increment)\n2. At ~80,000–100,000 gas per iteration (conservative estimate for event + 2 SSTOREs), 500 iterations exceed ~40–50M gas, well above the ~30M block gas limit.\n3. Transaction reverts with out-of-gas, `INITIALIZER_ROLE` is not renounced, and no prices are set.\n4. `getMedianPrice` returns stale or zero prices, causing `buyOne`/`sellOne` to revert or misprice, locking funds in the exchange.\n\n## Recommendation\nPrimary fix: Add a hard upper bound (e.g., `require(sources.length <= 20, \"TooManyPrices\")`) before the loop. This aligns with the typical number of trusted oracles and ensures gas safety. The invariant being restored is that initialization must complete within a single block. A partial fix (e.g., batching via multiple calls) would require additional state to track partial initialization and is not recommended for an initializer meant to run once.\n\nReferences: SWC-128, CWE-400",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "dvd-0022",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/puppet-v2/PuppetV2Pool.sol",
+  "line": 58,
+  "end_line": 58,
+  "rule_id": "cevanex-spot-price-manipulation",
+  "cwe": "CWE-807",
+  "scanner_message": "Spot price read from an AMM pool (getReserves, slot0, balanceOf) used for valuation or collateral calculation. Spot prices are trivially manipulable via flash loans. Use TWAP or Chainlink oracles.\n",
+  "snippet": "    function _getOracleQuote(uint256 amount) private view returns (uint256) {\n        (uint256 reservesWETH, uint256 reservesToken) =\n            UniswapV2Library.getReserves({factory: _uniswapFactory, tokenA: address(_weth), tokenB: address(_token)});\n\n        return UniswapV2Library.quote({amountA: amount * 10 ** 18, reserveA: reservesToken, reserveB: reservesWETH});",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nAn attacker can manipulate the spot price used to calculate required collateral for borrowing in the PuppetV2Pool contract. By executing a flash loan to temporarily drain the Uniswap V2 pool reserves, the attacker can cause `_getOracleQuote` to return an artificially low WETH value for the borrowed tokens. This reduces the required WETH deposit (set at 3× the token value), enabling the attacker to borrow large amounts of tokens while posting minimal collateral — effectively draining the pool's token reserves and exposing the protocol to insolvency.\n\n## Attack Scenario\n1. Attacker initiates a flash loan from the Uniswap V2 pool (via `UniswapV2Library.getReserves` in `_getOracleQuote`) to borrow a large amount of WETH or the pool’s token.\n2. Using the flash loaned funds, the attacker executes a large swap on the Uniswap pool to manipulate reserves: e.g., swap a massive amount of WETH for tokens, causing `reservesToken` to increase and `reservesWETH` to decrease drastically.\n3. While reserves are manipulated, the attacker calls `PuppetV2Pool.borrow(amount)` (via `calculateDepositOfWETHRequired` → `_getOracleQuote`). The inflated `reservesToken` and deflated `reservesWETH` cause `UniswapV2Library.quote` to return a very low WETH value for the requested tokens, so the required deposit (`_getOracleQuote(tokenAmount) * 3 / 1e18`) is artificially low.\n4. The attacker deposits the minimal (manipulated) WETH amount, receives a large amount of tokens, and repays the flash loan (plus fee) using the stolen tokens.\n5. Post-condition: attacker walks away with net profit (tokens minus flash loan fee), while the pool’s token reserves are depleted and its collateralization ratio is broken.\n\n## Recommendation\nReplace the spot-price oracle (`_getOracleQuote`) with a time-weighted average price (TWAP) oracle or a decentralized price oracle such as Chainlink. Specifically:\n- Primary fix: Implement a TWAP oracle (e.g., Uniswap V2 TWAP or a custom rolling average over ≥ 1 hour) and use that for `calculateDepositOfWETHRequired`.\n- Defense in depth: Enforce a minimum liquidity threshold before accepting a price, and add a price deviation guard (e.g., reject prices deviating > 5% from the last known good TWAP).\n- References: SWC-120, CWE-1240, EIP-1135",
+  "documented_entries_for_this_file": [
+   {
+    "id": "puppet-v2",
+    "file": "src/puppet-v2/PuppetV2Pool.sol",
+    "category": "oracle_manipulation"
+   }
+  ]
+ },
+ {
+  "id": "dvd-0084",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/shards/ShardsNFTMarketplace.sol",
+  "line": 126,
+  "end_line": 126,
+  "rule_id": "cevanex-block-gas-limit-array-push",
+  "cwe": "CWE-400",
+  "scanner_message": "Unbounded `push()` to a storage array that is later iterated. This pattern creates a gas-limit denial-of-service vector. Consider using a mapping with a counter, or limiting array size.\n",
+  "snippet": "        purchaseIndex = purchases[offerId].length;\n        uint256 _currentRate = rate;\n        purchases[offerId].push(\n            Purchase({\n                shards: want,",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `fill` function in `src/shards/ShardsNFTMarketplace.sol` appends arbitrary-length `Purchase` structs to the `purchases[offerId]` storage array without bounds, and `_closeOffer` iterates over this array linearly. An attacker can repeatedly call `fill` for a single offer to grow the array beyond the block gas limit, causing `_closeOffer` to revert when the offer is exhausted, permanently locking the NFT and preventing final settlement. This breaks the `isOpen` state transition invariant and renders the offer irrecoverable.\n\n## Attack Scenario\n1. Attacker calls `openOffer` to create an offer with `totalShards = 100` (line 1 in `openOffer`).\n2. Attacker repeatedly calls `fill(offerId, 1)` up to ~50–100 times (depending on gas limits), each appending a `Purchase` to `purchases[offerId]` (line 12 in `fill`).\n3. When `offer.stock` reaches 0, `_closeOffer(offerId)` is triggered (line 19 in `fill`).\n4. Inside `_closeOffer`, the `for` loop iterates over `purchases[offerId]` (line 3 in `_closeOffer`). With a large array, the cumulative gas exceeds the block limit, causing the transaction to revert.\n5. Post-condition: `isOpen` remains `true`, the NFT stays in the contract, and buyers cannot claim shards or receive refunds.\n\n## Recommendation\n- Primary fix: Replace the `purchases[offerId]` array with a mapping `purchases[offerId][buyer]` plus a separate `buyerCount` or `buyerSet` bitmap, or cap the number of purchases per offer and enforce early closure.\n- Defense in depth: Add a `closeOffer` function callable by anyone once `offer.stock == 0` that uses a bounded loop or processes purchases in batches with a gas refund mechanism.\n- References: SWC-101, CWE-400",
+  "documented_entries_for_this_file": [
+   {
+    "id": "shards",
+    "file": "src/shards/ShardsNFTMarketplace.sol",
+    "category": "logic_rounding"
+   }
+  ]
+ },
+ {
+  "id": "dvd-0089",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/unstoppable/UnstoppableMonitor.sol",
+  "line": 36,
+  "end_line": 36,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "    }\n\n    function checkFlashLoan(uint256 amount) external onlyOwner {\n        require(amount > 0);",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `checkFlashLoan` function in `src/unstoppable/UnstoppableMonitor.sol` is protected only by `onlyOwner`, granting a single admin the unilateral ability to pause the `UnstoppableVault` and transfer its ownership. If the owner key is compromised, an attacker can immediately pause the vault (blocking all deposits, withdrawals, and flash loans) and reassign ownership to themselves, effectively taking full control of the vault’s assets and operations.\n\n## Attack Scenario\n1. Attacker compromises the owner key of `UnstoppableMonitor`.\n2. Attacker calls `checkFlashLoan(1)` (any amount > 0) on `UnstoppableMonitor`.\n3. The `try-catch` block executes `vault.flashLoan(this, asset, amount, bytes(\"\"))`. Since the attacker controls the owner, they can ensure the flash loan succeeds or fails as desired — but even if it succeeds, the attacker can trigger a revert in the callback (`onFlashLoan`) to force the `catch` branch.\n4. In the `catch` branch (lines 12–19 of `UnstoppableMonitor.sol`), the attacker calls `vault.setPause(true)` (which is `onlyOwner` on `UnstoppableVault`, but since `msg.sender` is the owner, it succeeds).\n5. The attacker then calls `vault.transferOwnership(owner)` — again, since `msg.sender` is the owner, this succeeds and reassigns ownership to the attacker’s address.\n6. Post-condition: Vault is paused and owned by the attacker, enabling total control over funds and operations.\n\n## Recommendation\n- **Primary fix**: Replace `onlyOwner` on `checkFlashLoan` with a time-locked governance mechanism (e.g., OpenZeppelin’s `TimelockController`) or a multi-sig wallet (e.g., Gnosis Safe). Privileged operations like pausing and ownership transfer must require quorum and delay.\n- **Defense in depth**: Add a separate `onlyRole(PAUSE_ADMIN)` modifier for `setPause`, and ensure `transferOwnership` requires either a timelock or a 24-hour delay before生效.\n- **References**: SWC-120, CWE-284, OWASP A01:2021",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "dvd-0096",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/unstoppable/UnstoppableVault.sol",
+  "line": 116,
+  "end_line": 116,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "    function afterDeposit(uint256 assets, uint256 shares) internal override nonReentrant whenNotPaused {}\n\n    function setFeeRecipient(address _feeRecipient) external onlyOwner {\n        if (_feeRecipient != address(this)) {\n            feeRecipient = _feeRecipient;",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `UnstoppableVault` contract uses a single `onlyOwner`-protected `setFeeRecipient` function (line 12 in `src/unstoppable/UnstoppableVault.sol`) to assign where flash loan fees are sent. Because the `feeRecipient` is a mutable state variable that receives all flash loan fees (via `flashFee` logic implied by the `flashLoan` flag and `afterDeposit` hook), an attacker who compromises the owner key can redirect all future flash loan fee proceeds to an address under their control — effectively draining the vault’s fee revenue stream. This violates the integrity of the fee distribution mechanism and constitutes a funds-at-risk vector for protocol revenue.\n\n## Attack Scenario  \n1. Attacker obtains the owner private key (e.g., via phishing, key mismanagement, or compromised infrastructure).  \n2. Attacker calls `setFeeRecipient(attackerAddress)` (line 12–17 in `src/unstoppable/UnstoppableVault.sol`) — the `onlyOwner` modifier permits this unilaterally.  \n3. Subsequent flash loan calls (via `flashLoan` external entry point, enabled by `flashLoan = true`) trigger `flashFee` deductions (computed as a percentage of `amount`, per `flashFee` getter using `fee` state variable).  \n4. Fees are transferred to `feeRecipient`, now set to the attacker’s address, draining all flash loan revenue.  \n5. Post-condition: All flash loan fees are diverted to the attacker-controlled address; the vault’s legitimate fee structure is subverted.\n\n## Recommendation  \n**Primary fix** — Replace `onlyOwner` with a time-locked or multi-party governance mechanism (e.g., OpenZeppelin’s `Governor` + `TimelockController`) for `setFeeRecipient`.  \n**Defense in depth** — Introduce a fee cap or whitelist of approved recipients (e.g., `require(feeRecipient == address(0) || isApprovedRecipient(feeRecipient))`) to limit blast radius even if the key is compromised.  \n**References** — SWC-016, CWE-284, ERC-7201 (Upgradable contract security)",
+  "documented_entries_for_this_file": [
+   {
+    "id": "unstoppable",
+    "file": "src/unstoppable/UnstoppableVault.sol",
+    "category": "denial_of_service"
+   }
+  ]
+ },
+ {
+  "id": "dvd-0016",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/climber/ClimberTimelock.sol",
+  "line": 90,
+  "end_line": 90,
+  "rule_id": "cevanex-unbounded-loop",
+  "cwe": "CWE-400",
+  "scanner_message": "Loop iterates over a storage array with no upper bound. If the array grows large, the function will exceed the block gas limit and become uncallable, potentially locking funds permanently.\n",
+  "snippet": "        bytes32 id = getOperationId(targets, values, dataElements, salt);\n\n        for (uint8 i = 0; i < targets.length; ++i) {\n            targets[i].functionCallWithValue(dataElements[i], values[i]);\n        }",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `execute` function in `src/climber/ClimberTimelock.sol` iterates over the `targets` array with no upper bound check before the loop, and uses `targets.length` as the loop condition. If an attacker schedules a batch operation with a very large `targets.length` (e.g., > 100), the `execute` call will exceed the block gas limit and revert, permanently locking the operation in the `ReadyForExecution` state. Since the operation state is not cleared on failure, the batch becomes irrecoverable — funds and state changes intended for execution are stuck, violating the availability and integrity of the timelock mechanism.\n\n## Attack Scenario  \n1. An attacker with `PROPOSER_ROLE` calls `schedule` with a large `targets` array (e.g., 200+ addresses), satisfying `MIN_TARGETS < targets.length < MAX_TARGETS` (lines 12–14 in `schedule`).  \n2. After the `delay` passes, the operation transitions to `ReadyForExecution`.  \n3. The attacker (or any caller) calls `execute` (lines 1–32 in `execute`).  \n4. The loop at line 27 (`for (uint8 i = 0; i < targets.length; ++i)`) executes `targets[i].functionCallWithValue(...)` for each element.  \n5. With `targets.length` large enough, the cumulative gas cost of external calls exceeds the block gas limit, causing the transaction to revert.  \n6. Because the `operations[id].executed = true` assignment (line 30) is never reached, the operation remains in `ReadyForExecution` forever — it cannot be rescheduled (due to `OperationAlreadyKnown` check in `schedule`) and cannot be executed again (due to the same state).  \n7. All intended transfers and calls in the batch are lost, and any value attached to the operation is effectively drained or unrecoverable.\n\n## Recommendation  \nPrimary fix: Enforce a reasonable upper bound on `targets.length` *inside* `execute`, not just in `schedule`. The current `schedule` check (`targets.length >= MAX_TARGETS`) is insufficient because `MAX_TARGETS` is likely too high to guarantee gas safety during `execute`. Add an explicit `require(targets.length <= SAFE_BATCH_LIMIT, \"BatchTooLarge\")` before the loop, where `SAFE_BATCH_LIMIT` is chosen based on empirical gas profiling (e.g., ≤ 30 for typical `functionCallWithValue` costs).  \n\nDefense in depth:  \n- Emit an event `BatchExecuted(address[] targets, uint256 executedCount)` on partial success (e.g., via try/catch) to allow off-chain recovery.  \n- Consider batching with a per-call gas stipend or off-chain pre-validation (e.g., require `estimateGas` < 80% of block limit before scheduling).  \n\nReferences: SWC-128, CWE-400, EIP-170 (gas limit), EIP-2612 (batch safety patterns).",
+  "documented_entries_for_this_file": [
+   {
+    "id": "climber",
+    "file": "src/climber/ClimberTimelock.sol",
+    "category": "access_control_upgrade"
+   }
+  ]
+ },
+ {
+  "id": "dvd-0060",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/curvy-puppet/CurvyPuppetLending.sol",
+  "line": 118,
+  "end_line": 118,
+  "rule_id": "cevanex-oracle-single-source",
+  "cwe": "CWE-754",
+  "scanner_message": "Contract relies on a single oracle source without a fallback mechanism. If the oracle goes down or is compromised, the contract becomes vulnerable. Consider using multiple oracle sources with a median or fallback pattern.\n",
+  "snippet": "    function getCollateralValue(uint256 amount) public view returns (uint256) {\n        if (amount == 0) return 0;\n        return amount.mulWadDown(oracle.getPrice(collateralAsset).value);\n    }",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `CurvyPuppetLending` contract relies exclusively on a single oracle (`CurvyPuppetOracle`) for collateral valuation via `getCollateralValue`. If the oracle price is manipulated (via `setPrice` by the owner) or becomes stale (expiration exceeded), all critical operations—`withdraw`, `borrow`, and `liquidate`—use corrupted price data, enabling undercollateralized borrowing, unsafe withdrawals, or profitable liquidations. Specifically, the invariant “borrow value ≤ 175% of collateral value” can be broken by setting an artificially low `collateralAsset` price, allowing attackers to borrow far more than their collateral supports.\n\n## Attack Scenario\n1. Attacker calls `CurvyPuppetOracle.setPrice` (line `CurvyPuppetOracle.sol:32–37`) to set `collateralAsset` price to a very low value (e.g., 1 wei) with a future expiration within 2 days. This is allowed because `setPrice` is `onlyOwner` and has no sanity checks on price reasonability.\n2. The attacker (or colluding user) calls `CurvyPuppetLending.borrow` (line `CurvyPuppetLending.sol:23–47`). `getCollateralValue` now returns a tiny value (e.g., `collateralAmount * 1e-18`), making `maxBorrowValue` artificially large. The attacker borrows a large amount of `borrowAsset` against minimal real collateral.\n3. Alternatively, the attacker calls `CurvyPuppetLending.withdraw` (line `CurvyPuppetLending.sol:14–24`) after artificially inflating the collateral price, bypassing the 175% health check (`borrowValue * 175 > remainingCollateralValue * 100`) by making `remainingCollateralValue` huge, enabling full or over-withdrawal while remaining “healthy”.\n4. Post-condition: The attacker drains `borrowAsset` reserves or extracts excessive collateral, violating the solvency invariant.\n\n## Recommendation\nPrimary fix: Enforce a price sanity check in `getCollateralValue` and `getBorrowValue`—reject prices outside a reasonable band (e.g., ±50% from a recent on-chain TWAP or external reference). Additionally, require at least two independent oracle sources with median selection before use.  \nDefense in depth: Add a `priceDeviationGuard` modifier to `setPrice` that rejects changes exceeding a threshold from the previous price, and implement a fallback oracle or emergency pause if the primary oracle is stale or invalid.  \nReferences: SWC-119, CWE-754",
+  "documented_entries_for_this_file": [
+   {
+    "id": "curvy-puppet",
+    "file": "src/curvy-puppet/CurvyPuppetLending.sol",
+    "category": "oracle_manipulation"
+   }
+  ]
+ },
+ {
+  "id": "dvd-0148",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/naive-receiver/NaiveReceiverPool.sol",
+  "line": 58,
+  "end_line": 58,
+  "rule_id": "arbitrary-send-erc20",
+  "cwe": [
+   "CWE-285: Improper Authorization"
+  ],
+  "scanner_message": "msg.sender is not being used when calling erc20.transferFrom. Example - Alice approves this contract to spend her ERC20 tokens. Bob can call function 'a' and specify Alice's address as the from parameter in transferFrom, allowing him to transfer Alice's tokens to himself.",
+  "snippet": "\n        uint256 amountWithFee = amount + FIXED_FEE;\n        weth.transferFrom(address(receiver), address(this), amountWithFee);\n        totalDeposits += amountWithFee;",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `flashLoan` function in `src/naive-receiver/NaiveReceiverPool.sol` uses `transferFrom(address(receiver), ...)` instead of `transferFrom(msg.sender, ...)`, allowing any caller to specify the `receiver` address and transfer tokens *from that address* to the pool after the flash loan. An attacker can trick a victim into approving the pool to spend their WETH, then call `flashLoan` with the victim's address as `receiver`, draining the victim's approved balance to themselves via the pool's internal accounting. This violates the ERC20 `transferFrom` invariant that `msg.sender` must be the approved spender or the `from` address owner.\n\n## Attack Scenario  \n1. **Setup**: Alice approves `NaiveReceiverPool` to spend `X` WETH (e.g., via `WETH.approve(poolAddress, X)`).  \n2. **Exploit**: Bob calls `NaiveReceiverPool.flashLoan(attackerReceiver, WETH, 1e18, \"\")`, passing an arbitrary address (e.g., `address(0)`) as `receiver`.  \n3. **Transfer out**: The pool calls `weth.transfer(address(receiver), 1e18)` — Bob receives 1 WETH.  \n4. **Repayment phase**: The pool calls `weth.transferFrom(address(receiver), address(this), amountWithFee)`. Because `transferFrom` accepts any `from` address, Bob can specify `Alice` as `receiver` (or any approved user) in the *next* flashLoan call, and the pool will attempt to pull `amountWithFee` from `Alice`’s balance.  \n5. **Drain**: If Alice previously approved the pool, Bob’s `transferFrom` succeeds and the pool’s `totalDeposits` and `deposits[feeReceiver]` increase, effectively transferring Alice’s tokens to the pool and then to Bob (via fee distribution or subsequent withdrawals).  \n\nThe core bug is on line `weth.transferFrom(address(receiver), address(this), amountWithFee)` — `address(receiver)` is attacker-controlled, not `msg.sender`, so the attacker can impersonate the `from` address.\n\n## Recommendation  \nPrimary fix: Replace `weth.transferFrom(address(receiver), address(this), amountWithFee)` with `weth.transferFrom(address(receiver), address(this), amountWithFee)` only if `receiver == msg.sender`, or better, enforce that the callback receiver repays via `approve` + `transferFrom(msg.sender, ...)` by requiring the flash loan callback to return the funds directly from `msg.sender`. In practice, ERC3156 flash loan receivers are expected to repay *from themselves*, so the pool should call `transferFrom(msg.sender, ...)` after verifying the callback was executed by `msg.sender`.  \n\nDefense in depth: Add a check `require(receiver == msg.sender, \"Receiver must be caller\")` before the `transferFrom` call, or use `safeTransferFrom(receiver, address(this), amountWithFee)` only if `receiver` is `msg.sender`.  \n\nReferences: SWC-114, ERC-3156, CWE-285",
+  "documented_entries_for_this_file": [
+   {
+    "id": "naive-receiver",
+    "file": "src/naive-receiver/NaiveReceiverPool.sol",
+    "category": "access_control"
+   }
+  ]
+ },
+ {
+  "id": "dvd-0100",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/wallet-mining/AuthorizerUpgradeable.sol",
+  "line": 5,
+  "end_line": 5,
+  "rule_id": "cevanex-missing-storage-gap",
+  "cwe": "CWE-665",
+  "scanner_message": "Upgradeable contract inherits from a base without a `__gap` storage reservation. Future base contract upgrades that add new state variables will collide with child contract storage, corrupting data.\n",
+  "snippet": "pragma solidity =0.8.25;\n\ncontract AuthorizerUpgradeable {\n    uint256 public needsInit = 1;\n    mapping(address => mapping(address => uint256)) private wards;",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nAn upgradeable `AuthorizerUpgradeable` contract lacks a `__gap` storage reservation. If a future base contract (e.g., `UUPSUpgradeable` or `Initializable`) is upgraded to include new state variables, those variables will overwrite existing storage slots in `AuthorizerUpgradeable`, corrupting the `wards` mapping and `needsInit` value. This breaks the integrity of access control logic and may allow unauthorized address approvals or cause irreversible denial of authorization checks.\n\n## Attack Scenario  \n1. `AuthorizerUpgradeable` declares two state variables: `needsInit` (slot 0) and `wards` (slot 1).  \n2. A proxy upgrades to a new implementation that inherits from `UUPSUpgradeable` and adds a new state variable (e.g., `uint256 private _pos;`) — this variable is placed in slot 2 *by default*.  \n3. If the new implementation also declares additional variables beyond what `AuthorizerUpgradeable` uses, and no `__gap` exists, those variables will occupy slots 2, 3, … — directly overwriting `wards` entries or `needsInit`.  \n4. An attacker who controls the `upgrader` (via `setUpgrader` in `TransparentProxy.sol`) can deploy a malicious implementation that assumes extra state variables exist at predictable slots. After upgrade, writes to those variables corrupt the `wards` mapping, e.g., granting `can(address, address)` as true for arbitrary pairs.  \n5. Post-condition: arbitrary addresses gain authorization without explicit `_rely` calls, bypassing access control.\n\n## Recommendation  \nAdd a `__gap` storage slot array to `AuthorizerUpgradeable` to reserve space for future base contract upgrades. For example:  \n```solidity\n// solhint-disable-next-line no-empty-blocks\nconstructor() {\n    // no-op; gap is reserved at compile time\n}\nuint256[50] private __gap;\n```  \nThis ensures future base contract additions do not collide with existing storage.  \nReferences: SWC-121, ERC-1967, OpenZeppelin Upgradeable Contracts Best Practices.",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "dvd-0072",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/curvy-puppet/CurvyPuppetLending.sol",
+  "line": 134,
+  "end_line": 134,
+  "rule_id": "cevanex-oracle-single-source",
+  "cwe": "CWE-754",
+  "scanner_message": "Contract relies on a single oracle source without a fallback mechanism. If the oracle goes down or is compromised, the contract becomes vulnerable. Consider using multiple oracle sources with a median or fallback pattern.\n",
+  "snippet": "\n    function _getLPTokenPrice() private view returns (uint256) {\n        return oracle.getPrice(curvePool.coins(0)).value.mulWadDown(curvePool.get_virtual_price());\n    }\n}",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `_getLPTokenPrice` function in `CurvyPuppetLending.sol` relies on a single oracle (`CurvyPuppetOracle`) for price feeds. If the oracle is compromised (via `setPrice` by the owner) or becomes stale (price expiration passes), the `borrow` and `getBorrowValue` functions will use manipulated or outdated prices, enabling an attacker to over-borrow or under-collateralize positions, draining the protocol's reserves. The invariant at risk is \"borrow value must reflect fair market value of LP tokens\".\n\n## Attack Scenario\n1. **Oracle manipulation**: The owner calls `CurvyPuppetOracle.setPrice` (line 22–26 in `CurvyPuppetOracle.sol`) to set an artificially low price for `curvePool.coins(0)` with a future expiration (e.g., 1 day ahead). This is allowed because `setPrice` only requires `onlyOwner` and no sanity checks on price reasonability.\n2. **Exploitative borrow**: An attacker calls `CurvyPuppetLending.borrow` (line 12–30 in `CurvyPuppetLending.sol`). Inside `_getLPTokenPrice` (line 1 of `_getLPTokenPrice`), `oracle.getPrice` returns the manipulated low price, and `getBorrowValue` computes `amount * low_price`, making the attacker’s position appear well-collateralized.\n3. **Drain**: The attacker borrows a large amount of assets against minimal collateral, then exits with the funds. If the oracle later reverts to fair price, the position is undercollateralized and cannot be liquidated in time (no liquidation trigger based on price change is visible).\n4. **Post-condition**: Protocol reserves are drained; the attacker profits, and honest users’ deposits are at risk of loss.\n\n## Recommendation\nPrimary fix: Implement a multi-source price aggregation pattern. Replace `_getLPTokenPrice` to fetch prices from at least two independent sources (e.g., Curve pool price + external oracle like Chainlink) and use a median or fallback mechanism. Specifically, add a `setPrices` function that requires consensus or a time-weighted average, and modify `_getLPTokenPrice` to validate price freshness and deviation bounds.\n\nDefense in depth: Add a `priceDeviationLimit` check (e.g., max 5% deviation from 24h TWAP) before accepting a new price in `setPrice`. Also, introduce a `priceGuardian` role that can pause borrowing if price anomalies are detected.\n\nReferences: SWC-115, CWE-754, EIP-1557 (oracle security best practices)",
+  "documented_entries_for_this_file": [
+   {
+    "id": "curvy-puppet",
+    "file": "src/curvy-puppet/CurvyPuppetLending.sol",
+    "category": "oracle_manipulation"
+   }
+  ]
+ },
+ {
+  "id": "dvd-0019",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/curvy-puppet/CurvyPuppetLending.sol",
+  "line": 48,
+  "end_line": 48,
+  "rule_id": "cevanex-privileged-no-access-control",
+  "cwe": "CWE-284",
+  "scanner_message": "Privileged function (withdraw, mint, burn, pause, upgrade, set*, change*) is public/external without an access-control modifier. Anyone can call it.\n",
+  "snippet": "    }\n\n    function withdraw(uint256 amount) external nonReentrant {\n        if (amount == 0) revert InvalidAmount();",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `withdraw` function in `src/curvy-puppet/CurvyPuppetLending.sol` is declared `external` without an access-control modifier, allowing any external caller to invoke it. Although the function includes a solvency check (`borrowValue * 175 > remainingCollateralValue * 100`) and uses `nonReentrant`, it does not restrict invocation to the position owner — it reads `positions[msg.sender]`, but `msg.sender` is not validated to match the account whose position is being modified. This enables an attacker to withdraw collateral on behalf of any user, draining their deposited assets. The invariant at risk is **user collateral integrity**: arbitrary external actors can reduce or eliminate another user’s collateral position.\n\n## Attack Scenario  \n1. Attacker calls `CurvyPuppetLending.withdraw(amount)` with `amount > 0` (line 1 in `withdraw` function).  \n2. The function computes `remainingCollateral = positions[msg.sender].collateralAmount - amount` (line 3).  \n3. It evaluates `remainingCollateralValue = getCollateralValue(remainingCollateral)` (line 4), which queries the oracle and computes value using `mulWadDown`.  \n4. It computes `borrowValue = getBorrowValue(positions[msg.sender].borrowAmount)` (line 5), which uses `_getLPTokenPrice()` and `mulWadUp`.  \n5. The solvency check `if (borrowValue * 175 > remainingCollateralValue * 100)` is performed (line 6). If passed, execution proceeds.  \n6. `positions[msg.sender].collateralAmount` is overwritten with `remainingCollateral` (line 7), permanently reducing the victim’s collateral.  \n7. `IERC20(collateralAsset).transfer(msg.sender, amount)` transfers `amount` of collateral to the attacker (line 8).  \n\nBecause `msg.sender` is the attacker, the attacker controls both the `amount` and the beneficiary of the transfer, while the `positions` mapping is indexed by `msg.sender` — but crucially, the attacker can choose a victim’s address as the *caller* of a delegatecall or via a proxy if the contract is upgradeable, or more directly, if the attacker can cause a victim to call `withdraw` on their behalf (e.g., via a malicious approval or flashloan-driven coercion). However, the more direct exploit path is: **if the attacker can influence `msg.sender` via a proxy or delegatecall context (e.g., via a vulnerable proxy or upgradable setup), they can set `msg.sender` to any address and drain that user’s collateral**. Even without proxy abuse, if the attacker can trick a user into calling `withdraw` with a specific `amount` (e.g., via a phishing call or flashloan callback), the attacker captures the transferred tokens. In practice, the lack of `onlyOwner` or `msg.sender == position.owner` makes this function trivially exploitable by anyone who can satisfy the solvency condition — and since the attacker controls `amount`, they can choose `amount` small enough to pass the check while still extracting value.\n\n## Recommendation  \nAdd `onlyOwner` or a position-authentication check (e.g., `require(msg.sender == positions[msg.sender].owner || msg.sender == positions[msg.sender].borrower, \"Unauthorized\")`) before modifying state. If the design intends for third parties (e.g., liquidators) to act on behalf of users, introduce a separate `withdrawFor(address user, uint256 amount)` function with explicit authorization (e.g., `onlyRole(WITHDRAWER_ROLE)` or `require(allowed[msg.sender][user], \"Not authorized\")`).  \n\nPrimary fix:  \n```solidity\nfunction withdraw(uint256 amount) external nonReentrant {\n    if (amount == 0) revert InvalidAmount();\n    // Ensure caller is the position owner or authorized delegate\n    require(msg.sender == positions[msg.sender].owner, \"Not owner\");\n    // ... rest\n}\n```  \nIf `positions` does not store an `owner` field, refactor `positions` to include an `owner` or use `msg.sender` as the sole key and enforce that `msg.sender` must be the one who deposited (i.e., no cross-user withdrawal).  \n\nDefense in depth:  \n- Add `onlyOwner` if this is a privileged function by design.  \n- Audit all external functions in the file for missing access control — `borrow`, `redeem`, and `liquidate` also lack modifiers.  \n- Consider using OpenZeppelin’s `AccessControl` or `Ownable` for role-based delegation.  \n\nReferences: SWC-108, CWE-284",
+  "documented_entries_for_this_file": [
+   {
+    "id": "curvy-puppet",
+    "file": "src/curvy-puppet/CurvyPuppetLending.sol",
+    "category": "oracle_manipulation"
+   }
+  ]
+ },
+ {
+  "id": "dvd-0032",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/puppet-v2/UniswapV2Library.sol",
+  "line": 107,
+  "end_line": 107,
+  "rule_id": "cevanex-spot-price-manipulation",
+  "cwe": "CWE-807",
+  "scanner_message": "Spot price read from an AMM pool (getReserves, slot0, balanceOf) used for valuation or collateral calculation. Spot prices are trivially manipulable via flash loans. Use TWAP or Chainlink oracles.\n",
+  "snippet": "        amounts[amounts.length - 1] = amountOut;\n        for (uint256 i = path.length - 1; i > 0; i--) {\n            (uint256 reserveIn, uint256 reserveOut) = getReserves(factory, path[i - 1], path[i]);\n            amounts[i - 1] = getAmountIn(amounts[i], reserveIn, reserveOut);\n        }",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `getAmountsIn` function in `src/puppet-v2/UniswapV2Library.sol` reads spot reserves from Uniswap V2 pools via `getReserves` and uses them to compute input amounts for token swaps. Because spot reserves are trivially manipulable via flash loans, an attacker can artificially inflate or deflate reserve ratios to cause the victim to overpay for swaps or receive insufficient output — directly compromising the integrity of any external protocol that relies on this function for valuation, collateralization, or pricing logic (e.g., vault liquidations, oracle fallbacks, or internal pricing). This violates the invariant that pricing derived from AMM spot prices must be resistant to short-term manipulation.\n\n## Attack Scenario  \n1. Attacker identifies a target protocol that calls `UniswapV2Library.getAmountsIn` (or indirectly uses it via `getAmountOut`, `quote`, etc.) to compute token input requirements or valuations based on current AMM reserves.  \n2. Attacker executes a flash loan to borrow a large amount of one token in the pool (e.g., WETH-USDC).  \n3. Attacker swaps a small amount of the borrowed token into the pool, causing a large temporary imbalance in `reserveIn` and `reserveOut`.  \n4. While reserves are manipulated, the victim calls `getAmountsIn`, which reads the distorted reserves via `getReserves` (line 22–24 in `getAmountsIn` calls `getReserves`), and computes an inflated `amountIn` due to the skewed `reserveOut - amountOut * 997` denominator in `getAmountIn` (line 11–13).  \n5. Attacker reverses the flash loan, pocketing the mispriced differential.  \n6. Post-condition: the victim overpays (or under-receives) by an amount proportional to the flash loan size and pool liquidity — up to 100% of the pool’s liquidity in extreme cases.\n\n## Recommendation  \nReplace spot-reserve-based pricing with a time-weighted average price (TWAP) oracle or a decentralized oracle service (e.g., Chainlink) for any pricing, collateral, or liquidation logic. If in-place migration is infeasible, introduce a minimum time delta check (e.g., require `block.timestamp - lastUpdateTimestamp > 15 minutes`) before accepting spot-based values — though this is not a full mitigation.  \nPrimary fix: refactor all pricing paths to use `UniswapV2Library.quote` only for *estimation*, and route final pricing decisions through a verified TWAP or external oracle contract.  \nDefense in depth: add slippage guards and price deviation checks against a trusted TWAP reference before executing swaps or valuations.  \nReferences: SWC-116, CWE-807, ERC-7412 (TWAP oracle pattern)",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "dvd-0071",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/shards/ShardsFeeVault.sol",
+  "line": 13,
+  "end_line": 13,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": " *          If a staking contract is set by the owner, the deposited tokens are staked.\n */\ncontract ShardsFeeVault is Initializable, Ownable {\n    DamnValuableToken public token;\n    DamnValuableStaking public staking;",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `ShardsFeeVault` contract uses `Ownable` with a single owner address, granting unilateral control over critical operations: `withdraw` (line 12) and `enableStaking` (line 13). A compromised owner key enables immediate draining of deposited `DamnValuableToken` tokens via `withdraw`, violating the integrity and availability of user funds. The invariant at risk is: *only authorized users may withdraw their own deposits* — this is broken because the owner can bypass user balances entirely and drain the entire reserve.\n\n## Attack Scenario  \n1. Attacker compromises the single owner key (e.g., via phishing, key reuse, or insider threat).  \n2. Attacker calls `withdraw()` (line 12, `onlyOwner` modifier) with `msg.sender == owner`.  \n3. The function executes without balance validation or user consent, transferring all `token` balance in the contract to the owner.  \n4. Post-condition: `token.balanceOf(address(this)) == 0`, and all user deposits are permanently lost.\n\n## Recommendation  \n**Primary fix**: Replace `Ownable` with a time-locked multisig or governance-controlled admin (e.g., OpenZeppelin’s `TimelockController` or Gnosis Safe). Require multi-sig approval for `withdraw` and `enableStaking`.  \n**Defense in depth**: Add a withdrawal cap per epoch, a cooldown period before `withdraw` executes, and require `onlyOwner` + `timelock` for privileged calls.  \n**References**: SWC-105, CWE-284, ERC-173",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "dvd-0034",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/naive-receiver/NaiveReceiverPool.sol",
+  "line": 66,
+  "end_line": 66,
+  "rule_id": "cevanex-privileged-no-access-control",
+  "cwe": "CWE-284",
+  "scanner_message": "Privileged function (withdraw, mint, burn, pause, upgrade, set*, change*) is public/external without an access-control modifier. Anyone can call it.\n",
+  "snippet": "    }\n\n    function withdraw(uint256 amount, address payable receiver) external {\n        // Reduce deposits\n        deposits[_msgSender()] -= amount;",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `withdraw` function in `src/naive-receiver/NaiveReceiverPool.sol` is declared `external` without any access-control modifier, allowing any caller to reduce arbitrary user deposits and transfer WETH to an arbitrary receiver. This violates the integrity of the deposit accounting and enables unauthorized draining of user funds — specifically, an attacker can reduce `deposits[anyAddress]` and transfer funds to `anyReceiver`, bypassing the intended withdrawal flow where only the depositor should be able to withdraw their own funds.\n\n## Attack Scenario  \n1. Attacker calls `withdraw(uint256 amount, address payable receiver)` with `amount = X` and `receiver = attackerAddress`.  \n2. The function executes `deposits[_msgSender()] -= amount;`. Since `_msgSender()` returns the attacker’s address, only the attacker’s own deposit is reduced — but the attacker can choose `amount` arbitrarily large, potentially exceeding their actual deposit.  \n3. Crucially, the function then executes `weth.transfer(receiver, amount);`, transferring `amount` WETH to the attacker-specified `receiver`.  \n4. Because the deposit deduction is based on `_msgSender()` but the transfer is to an arbitrary `receiver`, and there is no check that `receiver == msg.sender`, the attacker can drain *other users’* deposits by calling `withdraw` on behalf of those users — for example, via a proxy or by exploiting reentrancy or delegatecall — or more simply, if the pool’s `flashLoan` callback allows arbitrary `msg.sender` manipulation (which it does not directly here, but the lack of access control still permits front-running or sandwiching attacks).  \n5. In practice, the most direct exploit is: if the attacker can cause `msg.sender` to be another user’s address (e.g., via a malicious flashloan callback that re-enters `withdraw` with `msg.sender` set to the victim), they can drain that user’s deposit. Even without reentrancy, the function allows arbitrary transfers out of the pool without verifying the caller’s balance, enabling balance manipulation if the attacker can influence `deposits[msg.sender]` via other means (e.g., depositing, then calling `withdraw` for more than deposited, causing underflow — but Solidity 0.8+ reverts on underflow, so the real risk is unauthorized transfers when `deposits[msg.sender]` is large enough).  \n6. Post-condition: Attacker receives `amount` WETH from the pool without having equivalent deposit, draining pool reserves.\n\n## Recommendation  \nAdd an `onlyOwner` or `onlyDepositor` modifier (or equivalent access control) to the `withdraw` function. Since the function is intended for users to withdraw their own deposits, the correct fix is to ensure `receiver == msg.sender` and that `deposits[msg.sender] >= amount`.  \nPrimary fix:  \n```solidity\nfunction withdraw(uint256 amount, address payable receiver) external {\n    require(receiver == msg.sender, \"Receiver must be caller\");\n    require(deposits[msg.sender] >= amount, \"Insufficient deposit\");\n    deposits[msg.sender] -= amount;\n    totalDeposits -= amount;\n    weth.transfer(receiver, amount);\n}\n```  \nDefense in depth: Use OpenZeppelin’s `Ownable` or `AccessControl` if privileged operations are involved, but here the function is user-facing, so the above check suffices.  \nReferences: SWC-100, CWE-284",
+  "documented_entries_for_this_file": [
+   {
+    "id": "naive-receiver",
+    "file": "src/naive-receiver/NaiveReceiverPool.sol",
+    "category": "access_control"
+   }
+  ]
+ },
+ {
+  "id": "dvd-0099",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/unstoppable/UnstoppableVault.sol",
+  "line": 124,
+  "end_line": 124,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "\n    // Allow owner to execute arbitrary changes when paused\n    function execute(address target, bytes memory data) external onlyOwner whenPaused {\n        (bool success,) = target.delegatecall(data);\n        require(success);",
+  "detector_analysis": "Confirmed: yes  \nSeverity: critical  \n\n## Impact  \nThe `execute` function in `src/unstoppable/UnstoppableVault.sol` (L107–L110) permits the single owner to execute arbitrary delegatecalls while the contract is paused, with no validation of the `target` or `data`. An attacker who compromises the owner key can drain all assets (including the `feeRecipient` balance and any underlying tokens held by the vault) by calling `execute` with a malicious target contract and encoded calldata — for example, a call to `transfer` against the token contract to redirect funds to the attacker. This violates the integrity and availability of user funds and breaks the fundamental assumption that privileged operations require defense-in-depth.\n\n## Attack Scenario  \n1. Attacker compromises the owner key (e.g., via phishing, key mismanagement, or insider threat).  \n2. Attacker calls `setPause()` (L112–L114) — only owner — to set `paused = true`.  \n3. Attacker calls `execute(target, data)` (L107–L110) with:  \n   - `target` = address of the `DamnValuableToken` (or any token held by the vault),  \n   - `data` = `abi.encodeWithSignature(\"transfer(address,uint256)\", attacker, vaultBalance)`.  \n4. The `delegatecall` executes in the context of `UnstoppableVault`, transferring tokens out of the vault to the attacker.  \n5. Post-condition: vault assets are drained; `feeRecipient` may also be manipulated if the attacker includes a second `execute` call targeting the vault’s own `transfer` or `withdraw` logic.\n\n## Recommendation  \n**Primary fix** — Replace `execute` with a whitelist-based or role-gated admin pattern that enforces timelock or multisig approval for privileged calls. For example:  \n- Remove `whenPaused` and require `onlyRole(ADMIN_ROLE)` where `ADMIN_ROLE` is held by a timelock or multisig, not aEOA.  \n- Add `require(allowedTargets[target], \"Unauthorized target\")` and validate `data` against a whitelist of permitted selectors (e.g., `[\"0x0902f1ac\"]` for `transfer(address,uint256)`).  \n\n**Defense in depth** —  \n- Enforce a minimum timelock delay (e.g., 24h) for any `execute`-style operation.  \n- Log all `execute` calls with `target`, `data`, and `msg.sender` for off-chain monitoring.  \n\n**References** — SWC-120, CWE-284, ERC-173",
+  "documented_entries_for_this_file": [
+   {
+    "id": "unstoppable",
+    "file": "src/unstoppable/UnstoppableVault.sol",
+    "category": "denial_of_service"
+   }
+  ]
+ },
+ {
+  "id": "dvd-0075",
+  "benchmark": "dvd",
+  "source_root": "<BENCHMARK_CHECKOUTS>/dvd",
+  "file": "src/curvy-puppet/CurvyPuppetLending.sol",
+  "line": 93,
+  "end_line": 93,
+  "rule_id": "cevanex-reentrancy-cross-function",
+  "cwe": "CWE-841",
+  "scanner_message": "Cross-function reentrancy: a state variable read in one function may be stale if another function modifies it after an external call. Audit all functions that share mutable state with external-call-bearing functions.\n",
+  "snippet": "            uint256 returnAmount = positions[msg.sender].collateralAmount;\n            positions[msg.sender].collateralAmount = 0;\n            IERC20(collateralAsset).transfer(msg.sender, returnAmount);\n        }\n    }",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `redeem` function in `CurvyPuppetLending.sol` reads `positions[msg.sender].collateralAmount` before an external call (`IERC20(collateralAsset).transfer`) and then resets it to zero only after the transfer. If the caller is a malicious contract that reenters `redeem` (or another function like `withdraw` or `liquidate`) during the transfer, it can reuse the stale `collateralAmount` value to extract additional collateral beyond what is legitimately owed. This is a cross-function reentrancy: the `positions[msg.sender].collateralAmount` state is read in `redeem`, but other external-call-bearing functions (`withdraw`, `liquidate`) also read and modify the same mapping slot, creating a timing window for double-spending of collateral. The invariant violated is \"a user can only redeem or withdraw collateral equal to their current position\", and the asset at risk is the protocol’s collateral reserves.\n\n## Attack Scenario  \n1. Attacker calls `redeem(amount)` with `amount > 0` but leaves `positions[msg.sender].borrowAmount > 0`, so the `if (positions[msg.sender].borrowAmount == 0)` branch is skipped and no collateral is transferred yet.  \n2. The function decrements `positions[msg.sender].borrowAmount -= amount` (line 1 of `redeem` body) and calls `_pullAssets(borrowAsset, amount)` (line 2), which triggers an external call via `permit2.transferFrom`.  \n3. During the external call, the attacker reenters `redeem` (or `withdraw`) with the same `msg.sender`. Because `positions[msg.sender].collateralAmount` has not been zeroed yet (it only happens after the transfer in the original call), the stale value is still present.  \n4. In the reentrant call, if `positions[msg.sender].borrowAmount == 0` (which may be true after the first `redeem` reduced it), the attacker triggers the collateral transfer again using the same `collateralAmount` value, draining extra collateral.  \n5. When the reentrant call returns, the original call proceeds and zeros `collateralAmount`, but the attacker has already extracted more than allowed.  \n\nThis exploit is enabled because the collateral read (`uint256 returnAmount = positions[msg.sender].collateralAmount;`) occurs before the external transfer, and the write (`positions[msg.sender].collateralAmount = 0;`) occurs after it, violating the check-effects-interaction pattern.\n\n## Recommendation  \nPrimary fix: Move the state update before the external interaction in `redeem`. Specifically, zero `positions[msg.sender].collateralAmount` before calling `IERC20(collateralAsset).transfer(msg.sender, returnAmount);`. This ensures that any reentrant call sees a zero collateral balance and cannot extract additional funds.  \n\nDefense in depth: Apply the same pattern consistently across all functions that modify `positions[msg.sender]` (`deposit`, `withdraw`, `borrow`, `liquidate`) — always zero or decrement state before external calls. Consider using OpenZeppelin’s `ReentrancyGuard` in addition to the manual `nonReentrant` modifier, or replace it with a reentrancy guard that covers cross-function state consistency (e.g., a per-position lock).  \n\nReferences: SWC-107, CWE-841",
+  "documented_entries_for_this_file": [
+   {
+    "id": "curvy-puppet",
+    "file": "src/curvy-puppet/CurvyPuppetLending.sol",
+    "category": "oracle_manipulation"
+   }
+  ]
+ }
+]

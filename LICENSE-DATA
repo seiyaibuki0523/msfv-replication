@@ -1,0 +1,19 @@
+Creative Commons Attribution 4.0 International (CC BY 4.0)
+
+The data and documents in this package — everything under data/ and jobs/, the
+ground-truth files under experiments/ground_truth/, and the Markdown documents —
+are made available under the Creative Commons Attribution 4.0 International
+licence. You are free to share and adapt the material for any purpose, provided
+you give appropriate credit:
+
+    Casper Chen, "Replication package for: Reducing Hallucinated False Positives
+    in LLM-Based Vulnerability Detection via Multi-Signal Focused Verification",
+    Zenodo, 2026, version 1.0 (DOI on the Zenodo record page).
+
+The full legal text is at https://creativecommons.org/licenses/by/4.0/legalcode
+
+Exceptions. The recorded outputs quote fragments of the benchmark projects'
+source code (finding snippets, function bodies, PoC scripts that import them);
+those fragments remain under the licences of the respective benchmarks, listed
+in THIRD_PARTY.md. experiments/ground_truth/smartbugs_vulnerabilities.json is a
+verbatim copy of the SmartBugs-curated annotation file (Apache License 2.0).

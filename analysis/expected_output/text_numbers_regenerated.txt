@@ -1,0 +1,91 @@
+=== A. finding-level agreement, main pools (seed 1, 3 Nemotron passes), P1 ship decision
+  ('gemma', 'dvd'): n=95 unanimous=67.4% Fleiss kappa=0.533 shipped=[33, 31, 41]
+  ('gemma', 'pygoat'): n=104 unanimous=68.3% Fleiss kappa=0.544 shipped=[36, 37, 41]
+  ('gemma', 'nodegoat'): n=38 unanimous=97.4% Fleiss kappa=0.963 shipped=[23, 24, 24]
+  ('gemma', 'smartbugs'): n=565 unanimous=69.7% Fleiss kappa=0.587 shipped=[256, 227, 237]
+  ('qwen', 'dvd'): n=112 unanimous=83.9% Fleiss kappa=0.772 shipped=[42, 42, 43]
+  ('qwen', 'pygoat'): n=112 unanimous=68.8% Fleiss kappa=0.576 shipped=[60, 46, 40]
+  ('qwen', 'nodegoat'): n=25 unanimous=48.0% Fleiss kappa=0.306 shipped=[12, 14, 13]
+  ('qwen', 'smartbugs'): n=361 unanimous=63.4% Fleiss kappa=0.507 shipped=[162, 155, 166]
+  ('nemotron', 'dvd'): n=83 unanimous=86.7% Fleiss kappa=0.753 shipped=[19, 19, 20]
+  ('nemotron', 'pygoat'): n=93 unanimous=88.2% Fleiss kappa=0.828 shipped=[62, 61, 57]
+  ('nemotron', 'nodegoat'): n=39 unanimous=97.4% Fleiss kappa=0.965 shipped=[21, 22, 22]
+  ('nemotron', 'smartbugs'): n=411 unanimous=84.4% Fleiss kappa=0.760 shipped=[135, 123, 131]
+=== A. cross-verifier pools (3 seeds x 3 passes)
+  ('gemma', 'gemma', 'dvd'): n=274 unanimous=94.9% kappa=0.930
+  ('gemma', 'gemma', 'pygoat'): n=314 unanimous=99.7% kappa=0.994
+  ('gemma', 'gemma', 'nodegoat'): n=111 unanimous=100.0% kappa=1.000
+  ('gemma', 'gemma', 'smartbugs'): n=1703 unanimous=95.5% kappa=0.939
+  ('gemma', 'qwen', 'dvd'): n=274 unanimous=96.4% kappa=0.951
+  ('gemma', 'qwen', 'pygoat'): n=314 unanimous=95.9% kappa=0.939
+  ('gemma', 'qwen', 'nodegoat'): n=111 unanimous=97.3% kappa=0.961
+  ('gemma', 'qwen', 'smartbugs'): n=1703 unanimous=97.2% kappa=0.956
+  ('qwen', 'gemma', 'dvd'): n=336 unanimous=97.0% kappa=0.958
+  ('qwen', 'gemma', 'pygoat'): n=338 unanimous=98.8% kappa=0.982
+  ('qwen', 'gemma', 'nodegoat'): n=79 unanimous=100.0% kappa=1.000
+  ('qwen', 'gemma', 'smartbugs'): n=1070 unanimous=96.6% kappa=0.955
+  ('qwen', 'qwen', 'dvd'): n=336 unanimous=95.5% kappa=0.940
+  ('qwen', 'qwen', 'pygoat'): n=338 unanimous=95.9% kappa=0.942
+  ('qwen', 'qwen', 'nodegoat'): n=79 unanimous=93.7% kappa=0.895
+  ('qwen', 'qwen', 'smartbugs'): n=1070 unanimous=98.9% kappa=0.979
+=== C. cost
+  ('gemma', 'dvd'): detection 12 min; verify calls 76; in/out tokens per call 967/624; verify wall 7.7 min
+  ('gemma', 'pygoat'): detection 21 min; verify calls 106; in/out tokens per call 1112/534; verify wall 5.2 min
+  ('gemma', 'nodegoat'): detection 5 min; verify calls 20; in/out tokens per call 1156/423; verify wall 1.7 min
+  ('gemma', 'smartbugs'): detection 50 min; verify calls 547; in/out tokens per call 918/512; verify wall 15.5 min
+  ('qwen', 'dvd'): detection 11 min; verify calls 110; in/out tokens per call 1041/597; verify wall 8.9 min
+  ('qwen', 'pygoat'): detection 12 min; verify calls 117; in/out tokens per call 1146/522; verify wall 7.0 min
+  ('qwen', 'nodegoat'): detection 3 min; verify calls 16; in/out tokens per call 1300/738; verify wall 2.1 min
+  ('qwen', 'smartbugs'): detection 21 min; verify calls 357; in/out tokens per call 936/510; verify wall 10.8 min
+  ('nemotron', 'dvd'): detection 100 min; verify calls 55; in/out tokens per call 868/586; verify wall 3.2 min
+  ('nemotron', 'pygoat'): detection 49 min; verify calls 93; in/out tokens per call 966/388; verify wall 3.1 min
+  ('nemotron', 'nodegoat'): detection 17 min; verify calls 19; in/out tokens per call 1101/345; verify wall 0.7 min
+  ('nemotron', 'smartbugs'): detection 450 min; verify calls 308; in/out tokens per call 869/535; verify wall 15.8 min
+=== D. inventory 964
+   ('cross', 'baseline') 72
+   ('cross', 'full') 72
+   ('cross', 'full_rep2') 72
+   ('cross', 'full_rep3') 72
+   ('main', 'baseline') 60
+   ('main', 'full') 60
+   ('main', 'full_rep2') 36
+   ('main', 'full_rep3') 36
+   ('main', 'keep_CP') 15
+   ('main', 'keep_IC') 20
+   ('main', 'keep_IP') 15
+   ('main', 'keep_IS') 20
+   ('main', 'keep_SC') 20
+   ('main', 'keep_SP') 15
+   ('main', 'naive_verify') 59
+   ('main', 'noconcern') 60
+   ('main', 'noconcern_full') 20
+   ('main', 'noidentity') 60
+   ('main', 'nopoc') 45
+   ('main', 'nosource') 60
+   ('main', 'only_C') 20
+   ('main', 'only_I') 20
+   ('main', 'only_P') 15
+   ('main', 'only_S') 20
+=== E. seed evidence (same seed, three passes): shipped counts and #findings whose decision differs
+   ('gemma', 'dvd', 95, [33, 31, 41], 16, 26)
+   ('gemma', 'pygoat', 104, [36, 37, 41], 21, 23)
+   ('gemma', 'nodegoat', 38, [23, 24, 24], 1, 1)
+   ('gemma', 'smartbugs', 565, [256, 227, 237], 117, 123)
+   ('qwen', 'dvd', 112, [42, 42, 43], 12, 11)
+   ('qwen', 'pygoat', 112, [60, 46, 40], 26, 26)
+   ('qwen', 'nodegoat', 25, [12, 14, 13], 10, 5)
+   ('qwen', 'smartbugs', 361, [162, 155, 166], 75, 100)
+   ('nemotron', 'dvd', 83, [19, 19, 20], 6, 9)
+   ('nemotron', 'pygoat', 93, [62, 61, 57], 7, 9)
+   ('nemotron', 'nodegoat', 39, [21, 22, 22], 1, 1)
+   ('nemotron', 'smartbugs', 411, [135, 123, 131], 46, 42)
+=== F. PoC cost (P1, pooled over 5 runs)
+  ('gemma', 'dvd'): TP 2.8->2.2 (78.6% kept)  FP 35.2->36.2 (102.8% kept)  prec 7.4->5.7  R1: TP kept 84.2% FP kept 103.4%
+  ('gemma', 'pygoat'): TP 20.6->7.8 (37.9% kept)  FP 50.0->31.6 (63.2% kept)  prec 29.2->19.8  R1: TP kept 94.2% FP kept 98.9%
+  ('gemma', 'nodegoat'): TP 15.6->14.6 (93.6% kept)  FP 9.0->8.2 (91.1% kept)  prec 63.4->64.0  R1: TP kept 100.0% FP kept 100.0%
+  ('qwen', 'dvd'): TP 1.6->1.4 (87.5% kept)  FP 32.2->37.8 (117.4% kept)  prec 4.7->3.6  R1: TP kept 106.7% FP kept 110.6%
+  ('qwen', 'pygoat'): TP 17.4->7.8 (44.8% kept)  FP 47.6->33.0 (69.3% kept)  prec 26.8->19.1  R1: TP kept 94.2% FP kept 104.6%
+  ('qwen', 'nodegoat'): TP 13.0->3.0 (23.1% kept)  FP 8.4->7.0 (83.3% kept)  prec 60.7->30.0  R1: TP kept 96.9% FP kept 100.0%
+  ('nemotron', 'dvd'): TP 0.2->0.2 (100.0% kept)  FP 19.4->19.4 (100.0% kept)  prec 1.0->1.0  R1: TP kept 114.3% FP kept 99.4%
+  ('nemotron', 'pygoat'): TP 18.0->17.8 (98.9% kept)  FP 46.4->46.6 (100.4% kept)  prec 28.0->27.6  R1: TP kept 101.1% FP kept 100.4%
+  ('nemotron', 'nodegoat'): TP 14.0->14.0 (100.0% kept)  FP 7.8->8.2 (105.1% kept)  prec 64.2->63.1  R1: TP kept 100.0% FP kept 95.7%

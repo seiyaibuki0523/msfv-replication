@@ -1,0 +1,1024 @@
+[
+ {
+  "id": "smartbugs-0220",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/bad_randomness/smart_billions.sol",
+  "line": 267,
+  "end_line": 267,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "     * @param _who The address of new owner.\n     */\n    function changeOwner(address _who) external onlyOwner {\n        assert(_who != address(0));\n        commitDividend(msg.sender);",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `changeOwner` function in `dataset/bad_randomness/smart_billions.sol` implements a single-owner access control model where one address holds unilateral control over privileged operations (e.g., `setInvestStart`, `setBetMax`, `resetBet`, `coldStore`, `hotStore`, `payDividends`). A compromised owner key enables an attacker to drain contract funds via `pay`, `payWallet`, and `disinvest` functions, modify game parameters to guarantee losses for users, or permanently freeze user funds by changing the owner to an inaccessible address. The invariant at risk is \"only the legitimate owner may execute administrative functions\", which is violated if the owner key is compromised.\n\n## Attack Scenario\n1. Attacker compromises the owner's private key (via phishing, malware, or social engineering).\n2. Attacker calls `changeOwner(attackerAddress)` (line 1 in flagged function) — the function checks `onlyOwner`, which passes because the attacker controls the owner key.\n3. Attacker calls `coldStore()` or `hotStore()` to freeze or redirect user funds.\n4. Attacker calls `setBetMax(0)` or `setInvestStart(0)` to break game functionality, causing availability loss.\n5. Attacker calls `pay()` or `payWallet()` to drain `walletBalance` and user dividends directly to their address.\n\nThe post-condition is full control over contract funds and operations, with no technical barriers beyond key compromise.\n\n## Recommendation\n**Primary fix**: Replace single-owner control with a time-locked multisig or governance-based upgrade path. Specifically:\n- Deploy a `TimelockController` (OpenZeppelin) and require a minimum delay (e.g., 48 hours) for owner changes and critical administrative calls.\n- Alternatively, implement a multi-sig wallet (e.g., Gnosis Safe) for owner operations, requiring ≥2-of-3 signatures for `changeOwner` and privileged functions.\n\n**Defense in depth**: Add emergency pause via `Pausable` (OpenZeppelin) to halt operations during suspected compromise, and implement a separate `emergencyWithdraw` for users to recover funds if admin abuse is detected.\n\n**References**: SWC-121, CWE-284, ERC-173",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/bad_randomness/smart_billions.sol",
+    "categories": [
+     "bad_randomness"
+    ],
+    "lines": [
+     523,
+     560,
+     700,
+     702,
+     704,
+     706,
+     708,
+     710,
+     712,
+     714,
+     716,
+     718
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0906",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/reentrancy/spank_chain_payment.sol",
+  "line": 763,
+  "end_line": 763,
+  "rule_id": "use-custom-error-not-require",
+  "cwe": "",
+  "scanner_message": "Consider using custom errors as they are more gas efficient while allowing developers  to describe the error in detail using NatSpec.",
+  "snippet": "         require(channel.isUpdateLCSettling == true);\n         require(channel.numOpenVC == 0);\n         require(channel.updateLCtimeout < now, \"LC timeout over.\");\n\n         // if off chain state update didnt reblance deposits, just return to deposit owner",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `byzantineCloseChannel` function in `dataset/reentrancy/spank_chain_payment.sol` allows an attacker to drain ETH and ERC-20 tokens from the contract via reentrancy. After setting `channel.isUpdateLCSettling = true` and `channel.updateLCtimeout`, an attacker can call `byzantineCloseChannel` to reset balances to zero *before* executing external transfers to `channel.partyAddresses[0]` and `channel.partyAddresses[1]`. Because the token transfer uses `require(channel.token.transfer(...))` but the ETH transfers use `.transfer(...)`, the ETH transfers are safe from reentrancy, but the token transfer is not protected by a reentrancy guard, and the state variables `channel.ethBalances` and `channel.erc20Balances` are zeroed *before* the external calls, enabling an attacker to re-enter `byzantineCloseChannel` and extract the same balances again. This violates the Checks-Effects-Interactions pattern and allows repeated withdrawal of the same token amounts.\n\n## Attack Scenario\n1. **Setup**: An attacker creates a channel via `createChannel`, deposits ETH and/or tokens, and calls `updateLCstate` to set `channel.isUpdateLCSettling = true` and `channel.updateLCtimeout = now + confirmTime`.\n2. **Trigger**: After `channel.updateLCtimeout < now`, the attacker calls `byzantineCloseChannel`.\n3. **Reentrancy vector**: Inside `byzantineCloseChannel`, the function reads balances into local variables (`ethbalanceA`, `tokenbalanceA`, etc.), then *immediately* zeros the storage balances (`channel.ethBalances[...] = 0;`), and finally executes external calls: `.transfer(...)` for ETH and `channel.token.transfer(...)` for tokens.\n4. **Exploit**: The token transfer calls the token contract’s `transfer` function (line `dataset/reentrancy/spank_chain_payment.sol::transfer`), which emits a `Transfer` event but does *not* revert on failure. If the token contract is malicious or the recipient is a contract with a fallback that re-enters `byzantineCloseChannel`, the attacker can call `byzantineCloseChannel` again while `channel.isOpen` is still `true` and `channel.isUpdateLCSettling` is still `true`, and because balances were already zeroed, the second call will extract the same balances again (since `possibleTotalEthBeforeDeposit` and `possibleTotalTokenBeforeDeposit` will match `totalEthDeposit` and `totalTokenDeposit`, bypassing the `require` checks).\n5. **Post-condition**: The attacker drains the full token balance multiple times via reentrancy, while ETH is drained only once due to `.transfer`’s gas stipend limitation.\n\n## Recommendation\nPrimary fix: Move all external transfers to the *end* of the function and apply a reentrancy guard (e.g., OpenZeppelin’s `ReentrancyGuard`) to `byzantineCloseChannel`. Zero storage balances *after* all external calls, not before. Additionally, add a modifier or flag (e.g., `nonReentrant`) to prevent re-entry into `byzantineCloseChannel` until the function completes.\n\nDefense in depth: Use OpenZeppelin’s `SafeERC20.safeTransfer` instead of direct `token.transfer` to guard against tokens that do not revert on failure. Consider adding a `closed` flag that is set atomically with balance updates to prevent re-entry.\n\nReferences: SWC-107, CWE-841, ERC-2612",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/reentrancy/spank_chain_payment.sol",
+    "categories": [
+     "reentrancy"
+    ],
+    "lines": [
+     426,
+     430
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0855",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/reentrancy/spank_chain_payment.sol",
+  "line": 807,
+  "end_line": 810,
+  "rule_id": "use-custom-error-not-require",
+  "cwe": "",
+  "scanner_message": "Consider using custom errors as they are more gas efficient while allowing developers  to describe the error in detail using NatSpec.",
+  "snippet": "                 \"byzantineCloseChannel: token transfer failure\"\n             );\n             require(\n                 channel.token.transfer(channel.partyAddresses[1], tokenbalanceI),\n                 \"byzantineCloseChannel: token transfer failure\"\n             );\n         }",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `byzantineCloseChannel` function in `dataset/reentrancy/spank_chain_payment.sol` performs external ETH transfers before updating the channel state, enabling a reentrancy attack that could drain the contract's ETH and ERC20 token balances. Specifically, lines 12–14 call `transfer()` on `channel.partyAddresses[0]` and `channel.partyAddresses[1]` before zeroing out balances at lines 16–19. An attacker-controlled contract with a malicious fallback function can reenter `byzantineCloseChannel` (or related settlement functions) and extract additional funds before the state is finalized.\n\n## Attack Scenario\n1. Attacker deploys a malicious contract that implements a payable fallback function.\n2. Attacker opens a channel via `createChannel`, depositing ETH and/or tokens.\n3. Attacker initiates a channel settlement (e.g., via `updateLCstate`) and triggers `byzantineCloseChannel`.\n4. Inside `byzantineCloseChannel`, at line 12–14, the contract calls `channel.partyAddresses[0].transfer(ethbalanceA)` and `channel.partyAddresses[1].transfer(ethbalanceI)`.\n5. The malicious fallback function reenters `byzantineCloseChannel` (or `consensusCloseChannel`) before balances are zeroed (lines 16–19), allowing the attacker to extract the same ETH/tokens again.\n6. The second call succeeds because the balances have not yet been reset, enabling repeated withdrawals until gas limits or contract balance exhaustion.\n\n## Recommendation\nPrimary fix: Apply the Checks-Effects-Interactions pattern. Move all balance-zeroing and state updates (lines 16–19) *before* any external transfers (lines 12–14). Specifically, set `channel.ethBalances[*] = 0` and `channel.erc20Balances[*] = 0` before calling `transfer()`.\n\nDefense in depth: Use OpenZeppelin’s `ReentrancyGuard` modifier on `byzantineCloseChannel` and related settlement functions to prevent reentrant calls.\n\nReferences: SWC-107, CWE-400",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/reentrancy/spank_chain_payment.sol",
+    "categories": [
+     "reentrancy"
+    ],
+    "lines": [
+     426,
+     430
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0348",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/reentrancy/spank_chain_payment.sol",
+  "line": 808,
+  "end_line": 808,
+  "rule_id": "cevanex-reentrancy-cross-function",
+  "cwe": "CWE-841",
+  "scanner_message": "Cross-function reentrancy: a state variable read in one function may be stale if another function modifies it after an external call. Audit all functions that share mutable state with external-call-bearing functions.\n",
+  "snippet": "             );\n             require(\n                 channel.token.transfer(channel.partyAddresses[1], tokenbalanceI),\n                 \"byzantineCloseChannel: token transfer failure\"\n             );",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `byzantineCloseChannel` function in `dataset/reentrancy/spank_chain_payment.sol` is vulnerable to cross-function reentrancy. It reads `channel.token` (a state variable) and uses it in external calls (`transfer`) *after* modifying internal balances (`channel.erc20Balances[*] = 0`). If the token contract is malicious or reverts, the function may still emit the close event and decrement `numChannels`, but the caller may not receive the expected tokens. The invariant at risk is: \"parties receive their final balances on channel closure\".\n\n## Attack Scenario\n1. Attacker deploys a malicious ERC20 token contract where `transfer()` reverts or calls back into `byzantineCloseChannel` for the same `_lcID`.\n2. Attacker calls `byzantineCloseChannel` with non-zero `tokenbalanceA` or `tokenbalanceI`.\n3. Inside `byzantineCloseChannel`, balances are zeroed at lines after the balances are captured into local variables.\n4. The external `channel.token.transfer(...)` call triggers the malicious fallback.\n5. The reentrant call to `byzantineCloseChannel` fails the `require(channel.isOpen, ...)` check (since `isOpen` was not yet set to false), but if the token transfer reverts, the function reverts *after* balances are zeroed but *before* the final event is emitted or `isOpen` is set to false.\n6. The attacker can potentially force the channel into an inconsistent state where balances are zeroed but the channel remains open or events are not emitted, breaking the channel-closure invariant.\n\n## Recommendation\nPrimary fix: Zero balances *after* all external calls and final state updates. Move `channel.erc20Balances[*] = 0;` to after the `require(token.transfer(...))` calls and the `isOpen = false` assignment. This ensures atomicity of balance distribution and state update. Defense in depth: Use OpenZeppelin's `ReentrancyGuard` modifier on `byzantineCloseChannel`. References: SWC-107, CWE-674",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/reentrancy/spank_chain_payment.sol",
+    "categories": [
+     "reentrancy"
+    ],
+    "lines": [
+     426,
+     430
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0409",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/unchecked_low_level_calls/0x7d09edb07d23acb532a82be3da5c17d9d85806b4.sol",
+  "line": 84,
+  "end_line": 84,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "     */\n    function OpenToThePublic() \n    onlyOwner()\n    public\n    {",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe contract uses a single-owner access control model where the `owner` address holds unilateral control over critical state changes: enabling public access via `OpenToThePublic`, adjusting bet limits and difficulty, and potentially draining funds via `transferAnyERC20Token`. If the owner key is compromised, an attacker can immediately enable `openToPublic`, manipulate `betLimit` and `difficulty` to rig outcomes, and drain contract balances — directly violating the integrity and availability of user funds and game fairness.\n\n## Attack Scenario\n1. Attacker compromises the owner’s private key (e.g., via phishing, key reuse, or insecure storage).\n2. Attacker calls `OpenToThePublic()` (line 1–6 in `dataset/unchecked_low_level_calls/0x7d09edb07d23acb532a82be3da5c17d9d85806b4.sol`) to bypass the `isOpenToPublic` gate on `wager()` and `play()`.\n3. Attacker calls `AdjustBetAmounts()` and `AdjustDifficulty()` (both `onlyOwner`) to set `betLimit = 0` and `difficulty = 0`, ensuring all wagers fail or return zero payouts.\n4. Attacker calls `transferAnyERC20Token()` (line 13–15 in same file) to drain all ERC20 tokens held by the contract to their own address.\n5. Attacker waits for legitimate users to deposit ETH, then drains ETH via `transfer()` (line 16–18), completing fund extraction.\n\n## Recommendation\nPrimary fix: Replace single-owner control with a time-locked upgrade path or multi-sig governance. At minimum, add a `pause()` function guarded by a timelock (e.g., OpenZeppelin’s `TimelockController`) for privileged operations, and require two signatures for `transferAnyERC20Token` and `OpenToThePublic`.  \nDefense in depth: Introduce a `whitelistAdmins` mapping and require `quorum >= 2` for admin actions (SWC-117).  \nReferences: SWC-117, CWE-284",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/unchecked_low_level_calls/0x7d09edb07d23acb532a82be3da5c17d9d85806b4.sol",
+    "categories": [
+     "unchecked_low_level_calls"
+    ],
+    "lines": [
+     198,
+     210
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0344",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/unchecked_low_level_calls/0x3a0e9acd953ffc0dd18d63603488846a6b8b2b01.sol",
+  "line": 89,
+  "end_line": 89,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "    function WithdrawToHolder(address _addr, uint _wei) \n    public\n    onlyOwner\n    payable\n    {",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `WithdrawToHolder` function in `dataset/unchecked_low_level_calls/0x3a0e9acd953ffc0dd18d63603488846a6b8b2b01.sol` performs an unchecked low-level call (`_addr.call.value(_wei)()`) before updating the `Holders[_addr]` state variable. This violates the checks-effects-interactions pattern and enables a reentrancy attack where a malicious recipient contract can recursively call `WithdrawToHolder` to drain the contract's ETH balance before the balance deduction takes effect. The invariant at risk is \"Holders balances accurately reflect contract ETH liabilities\", and the asset at risk is ETH held in the contract.\n\n## Attack Scenario\n1. Attacker deploys a malicious contract with a payable fallback function that re-enters `WithdrawToHolder`.\n2. Attacker calls `WithdrawToHolder(attackerContract, X)` where `X ≤ Holders[attackerContract]`.\n3. The contract executes `_addr.call.value(X)()` — the attacker's fallback function triggers.\n4. Inside the fallback, the attacker calls `WithdrawToHolder(attackerContract, X)` again.\n5. Since `Holders[attackerContract]` has not yet been reduced (state update happens after the call), the second call succeeds.\n6. Steps 3–5 repeat until the contract balance is exhausted or gas limit is reached.\n7. Only then does the original call proceed to `Holders[_addr]-=_wei`, but the attacker has already drained ETH.\n\n## Recommendation\nPrimary fix: Apply the checks-effects-interactions pattern — set `Holders[_addr] -= _wei` before the external call. Replace the low-level call with `address(_addr).transfer(_wei)` or at minimum add a reentrancy guard (e.g., OpenZeppelin's `ReentrancyGuard`). If `call.value` is required for flexibility, wrap the function body with a `nonReentrant` modifier.\n\nReferences: SWC-107, CWE-863, ERC-1167 (minimal proxy pattern for reentrancy guards)",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/unchecked_low_level_calls/0x3a0e9acd953ffc0dd18d63603488846a6b8b2b01.sol",
+    "categories": [
+     "unchecked_low_level_calls"
+    ],
+    "lines": [
+     44,
+     97
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0212",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/bad_randomness/lucky_doubler.sol",
+  "line": 89,
+  "end_line": 89,
+  "rule_id": "cevanex-block-gas-limit-array-push",
+  "cwe": "CWE-400",
+  "scanner_message": "Unbounded `push()` to a storage array that is later iterated. This pattern creates a gas-limit denial-of-service vector. Consider using a mapping with a counter, or limiting array size.\n",
+  "snippet": "        entries.push(Entry(msg.sender, dValue, (dValue * (multiplier) / 100), false));\n        users[msg.sender].deposits++;\n        unpaidEntries.push(entries.length -1);\n\n        //Collect fees and update contract balance",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe flagged code in `join` appends entries to the `entries` and `unpaidEntries` storage arrays without any upper bound. These arrays are later iterated in `rand` (via `unpaidEntries.length`) and potentially in payout loops. An attacker can repeatedly call `join` to grow `unpaidEntries` until the transaction gas limit is exceeded, causing a denial-of-service where the contract can no longer process payouts or new deposits. This breaks the availability invariant of the LuckyDoubler contract.\n\n## Attack Scenario\n1. Attacker calls `join` (via the fallback or `init`) repeatedly. Each call pushes one entry into `entries` and one index into `unpaidEntries`.\n2. After ~500–1000 calls (depending on gas limit), `unpaidEntries.length` becomes large enough that operations like `rand(unpaidEntries.length)` or any loop over `unpaidEntries` consume more gas than the block limit.\n3. Subsequent calls to `join` or payout-triggering logic will revert due to out-of-gas, freezing the contract’s payout mechanism and preventing new deposits.\n\n## Recommendation\nReplace the unbounded `unpaidEntries` array with a mapping from address to entry index or a bounded queue with a maximum size. For example, use `mapping(address => uint) public entryIndex` to track each user’s entry index, or cap the number of pending entries and evict old ones in a FIFO manner. This restores the invariant that `unpaidEntries.length` remains below a safe threshold.\n\nReferences: SWC-128, CWE-400",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/bad_randomness/lucky_doubler.sol",
+    "categories": [
+     "bad_randomness"
+    ],
+    "lines": [
+     127,
+     128,
+     129,
+     130,
+     132
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0482",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/unchecked_low_level_calls/0xbebbfe5b549f5db6e6c78ca97cac19d1fb03082c.sol",
+  "line": 11,
+  "end_line": 11,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "contract Proxy  {\n    modifier onlyOwner { if (msg.sender == Owner) _; } address Owner = msg.sender;\n    function transferOwner(address _owner) public onlyOwner { Owner = _owner; } \n    function proxy(address target, bytes data) public payable {\n        // <yes> <report> UNCHECKED_LL_CALLS",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nA compromised or leaked owner private key grants an attacker unilateral control over the entire contract: they can drain all ETH via the `withdraw` function (line 12–14 in `0xbebbfe5b549f5db6e6c78ca97cac19d1fb03082c.sol`), upgrade the implementation via `proxy`, and arbitrarily reassign ownership. The invariant “only the legitimate owner may withdraw funds or change admin” is fully broken by single-key ownership.\n\n## Attack Scenario\n1. Attacker obtains the owner private key (e.g., via phishing, key reuse, or insider threat).\n2. Attacker calls `withdraw()` (line 12–14 in `0xbebbfe5b549f5db6e6c78ca97cac19d1fb03082c.sol`), which checks `require(msg.sender == Owner)` and then sends `Owner.transfer(this.balance)`, draining the entire contract balance.\n3. Alternatively, attacker calls `transferOwner(newAddr)` (line 1–2 in `0xbebbfe5b549f5db6e6c78ca97cac19d1fb03082c.sol`) to transfer control to a new address they control, then performs `withdraw()` or `proxy()` to upgrade and drain.\n\n## Recommendation\n- **Primary fix**: Replace single-owner access control with a time-locked upgrade mechanism (e.g., OpenZeppelin’s `TimelockController`) or a multisig/governance-based admin (e.g., Gnosis Safe + EIP-173 `Ownable` with timelocked transfers).\n- **Defense in depth**: Add a pause mechanism with a separate emergency admin, and require multi-sig for `withdraw` and `proxy`.\n- **References**: SWC-123, CWE-284, OWASP A01:2021",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/unchecked_low_level_calls/0xbebbfe5b549f5db6e6c78ca97cac19d1fb03082c.sol",
+    "categories": [
+     "unchecked_low_level_calls"
+    ],
+    "lines": [
+     14
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0149",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/unchecked_low_level_calls/0xe09b1ab8111c2729a76f16de96bc86a7af837928.sol",
+  "line": 142,
+  "end_line": 142,
+  "rule_id": "cevanex-ecrecover-no-nonce",
+  "cwe": "CWE-294",
+  "scanner_message": "`ecrecover` used without nonce, deadline, or chain ID in the signed hash. Signatures can be replayed across transactions or chains. Use EIP-712 typed data with domain separator and nonce.\n",
+  "snippet": "        require (block.number <= ticketLastBlock, \"Ticket has expired.\");\n        bytes32 signatureHash = keccak256(abi.encodePacked('\\x19Ethereum Signed Message:\\n37', uint40(ticketLastBlock), ticketID));\n        require (secretSigner == ecrecover(signatureHash, v, r, s), \"web3 vrs signature is not valid.\");\n\n        jackpotSize += amount * JACKPOT_FEE / 1000;",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `wager` function in `0xe09b1ab8111c2729a76f16de96bc86a7af837928.sol` uses `ecrecover` to validate a signature over a hash that contains only `ticketLastBlock` and `ticketID`, without any nonce, deadline, or chain ID. This allows attackers to replay valid signatures across different transactions or even across different chains (e.g., mainnet vs testnet), enabling unauthorized wager placement on behalf of the original signer. The signature is used to authorize the bet, and without replay protection, an attacker can capture a legitimate signature and reuse it to place bets repeatedly, draining the contract's collateral or manipulating the jackpot.\n\n## Attack Scenario\n1. Attacker observes a legitimate user's `wager` transaction that includes valid `v`, `r`, `s` parameters and `ticketID`, `ticketLastBlock`.\n2. Attacker extracts the signature components and the `ticketID`/`ticketLastBlock` values.\n3. Attacker constructs a new transaction calling `wager` with the same signature, but potentially a different `ticketID` or at a later block (as long as `block.number <= ticketLastBlock` holds).\n4. Since the signed hash `keccak256(abi.encodePacked('\\x19Ethereum Signed Message:\\n37', uint40(ticketLastBlock), ticketID))` does not include a nonce or unique transaction identifier, `ecrecover` will validate the same signature for any such replay.\n5. The attacker's `wager` call succeeds, placing a bet and deducting collateral, even though the signature was intended for a different user or purpose.\n\n## Recommendation\n- Primary fix: Include a unique nonce (e.g., `block.number`, `tx.origin`, or a per-user counter) and the chain ID in the signed hash to prevent replay attacks. For example, use `keccak256(abi.encodePacked('\\x19Ethereum Signed Message:\\n37', block.chainid, block.number, msg.sender, ticketID))`.\n- Defense in depth: Enforce a per-user nonce in the contract state and increment it on each successful wager, requiring the nonce to be part of the signed message.\n- References: SWC-121, EIP-191, EIP-712",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/unchecked_low_level_calls/0xe09b1ab8111c2729a76f16de96bc86a7af837928.sol",
+    "categories": [
+     "unchecked_low_level_calls"
+    ],
+    "lines": [
+     150
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0310",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/reentrancy/spank_chain_payment.sol",
+  "line": 798,
+  "end_line": 798,
+  "rule_id": "cevanex-reentrancy-cross-function",
+  "cwe": "CWE-841",
+  "scanner_message": "Cross-function reentrancy: a state variable read in one function may be stale if another function modifies it after an external call. Audit all functions that share mutable state with external-call-bearing functions.\n",
+  "snippet": "\n         if(ethbalanceA != 0 || ethbalanceI != 0) {\n             channel.partyAddresses[0].transfer(ethbalanceA);\n             channel.partyAddresses[1].transfer(ethbalanceI);\n         }",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `byzantineCloseChannel` function in `dataset/reentrancy/spank_chain_payment.sol` reads channel balances (`ethbalanceA`, `ethbalanceI`, `tokenbalanceA`, `tokenbalanceI`) into local variables, then resets the storage balances to zero, and finally performs external transfers using the stale local values. If either `channel.partyAddresses[0]` or `channel.partyAddresses[1]` is a malicious contract with a payable fallback that reenters `byzantineCloseChannel`, the same balances can be transferred again because the storage balances were already zeroed before the external calls. This enables repeated withdrawal of the same funds, draining the contract's ETH and token reserves.\n\n## Attack Scenario\n1. Attacker deploys a malicious contract that implements a payable fallback function.\n2. Attacker calls `byzantineCloseChannel` with a channel that has non-zero `ethBalances[0]` or `ethBalances[1]` (or token balances).\n3. Inside `byzantineCloseChannel`, local variables `ethbalanceA` and `ethbalanceI` are assigned from storage (`channel.ethBalances[0]`, `channel.ethBalances[1]`).\n4. Storage balances are set to zero: `channel.ethBalances[0] = 0; channel.ethBalances[1] = 0;`.\n5. The function executes `channel.partyAddresses[0].transfer(ethbalanceA);`. If `partyAddresses[0]` is the attacker's contract, its fallback triggers.\n6. In the fallback, the attacker calls `byzantineCloseChannel` again with the same `_lcID`. Because storage balances were already zeroed, `ethbalanceA` and `ethbalanceI` are now zero, but the attacker can still trigger token transfers if token balances were not yet zeroed in the same manner.\n7. Even if ETH transfers are safe after the first call, the token transfers (`channel.token.transfer(...)`) are performed *after* ETH transfers and are not protected by the same zeroing order, enabling a second round of token theft.\n8. The attacker successfully withdraws the same balance multiple times.\n\n## Recommendation\nPrimary fix: Use the Checks-Effects-Interactions pattern strictly. Move all external transfers *before* updating storage state, or ensure storage is updated atomically with respect to reentrancy. In this case, zero the storage balances *after* all external calls complete, or use a reentrancy guard modifier (e.g., OpenZeppelin's `ReentrancyGuard`). Additionally, consider using `safeTransfer` wrappers that revert on failure instead of `transfer` which has gas limitations.\n\nReferences: SWC-107, CWE-841",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/reentrancy/spank_chain_payment.sol",
+    "categories": [
+     "reentrancy"
+    ],
+    "lines": [
+     426,
+     430
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0876",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/reentrancy/spank_chain_payment.sol",
+  "line": 803,
+  "end_line": 806,
+  "rule_id": "use-short-revert-string",
+  "cwe": "",
+  "scanner_message": "Shortening revert strings to fit in 32 bytes will decrease gas costs for deployment and  gas costs when the revert condition has been met.",
+  "snippet": "\n         if(tokenbalanceA != 0 || tokenbalanceI != 0) {\n             require(\n                 channel.token.transfer(channel.partyAddresses[0], tokenbalanceA),\n                 \"byzantineCloseChannel: token transfer failure\"\n             );\n             require(\n                 channel.token.transfer(channel.partyAddresses[1], tokenbalanceI),",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `byzantineCloseChannel` function in `dataset/reentrancy/spank_chain_payment.sol` allows an attacker to reenter the function during token transfer execution and manipulate channel balances before final state cleanup, potentially draining both ETH and token balances from the channel. The vulnerability arises because the function performs external calls (`.transfer()` for ETH and `channel.token.transfer()` for ERC20 tokens) *before* clearing the local balance variables (`ethbalanceA`, `ethbalanceI`, `tokenbalanceA`, `tokenbalanceI`) and *before* setting `channel.isOpen = false`. An attacker-controlled token contract could reenter `byzantineCloseChannel` and cause the balance calculations to use stale values, enabling duplicate payouts.\n\n## Attack Scenario\n1. Attacker creates a channel via `createChannel` and deposits ETH and tokens.\n2. Attacker initiates a Byzantine close via `byzantineCloseChannel`.\n3. Inside `byzantineCloseChannel`, ETH transfers are executed first (lines 1–2 in the flagged code block), which are safe but set up the reentrancy vector.\n4. When `channel.token.transfer(channel.partyAddresses[0], tokenbalanceA)` is called (line 3), the attacker deploys a malicious ERC20 token contract whose `transfer` function has a fallback that reenters `byzantineCloseChannel`.\n5. On reentry, `channel` state still holds original balances because `channel.erc20Balances[*]` have not yet been zeroed (zeroing happens *after* the transfers at lines 4–7).\n6. The reentered call recomputes `tokenbalanceA` and `tokenbalanceI` from the unchanged storage values and triggers a second transfer, draining tokens again.\n7. After both calls complete, `channel.isOpen` is set to `false`, but tokens have been transferred twice.\n\n## Recommendation\nPrimary fix: Zero out `channel.erc20Balances[0]` and `channel.erc20Balances[1]` *before* executing any token transfers, and set `channel.isOpen = false` before any external calls. This ensures reentry cannot reuse stale balances.\n\nDefense in depth: Use the Checks-Effects-Interactions pattern strictly; avoid calling external contracts before final state updates. Consider using OpenZeppelin’s `ReentrancyGuard` modifier on sensitive close functions.\n\nReferences: SWC-107, CWE-400",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/reentrancy/spank_chain_payment.sol",
+    "categories": [
+     "reentrancy"
+    ],
+    "lines": [
+     426,
+     430
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0479",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/unchecked_low_level_calls/0xb620cee6b52f96f3c6b253e6eea556aa2d214a99.sol",
+  "line": 38,
+  "end_line": 38,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "//modifiers\n\nmodifier onlyOwner() {\n    require(msg.sender == owner);\n    _;",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe contract `dataset/unchecked_low_level_calls/0xb620cee6b52f96f3c6b253e6eea556aa2d214a99.sol` uses a single `owner` address with no multi-sig, timelock, or governance fallback to control privileged operations including `setSecret`, `winPrize`, and `claimPrize`. The `onlyOwner` modifier (via `require(msg.sender == owner)`) grants unilateral authority over critical state variables (`secret`, prize distribution, and winner assignment). If the owner key is compromised or lost, an attacker can arbitrarily set `secret`, call `winPrize`, and drain the prize via `claimPrize`, resulting in total loss of funds and manipulation of the game logic.\n\n## Attack Scenario\n1. Attacker compromises the owner’s private key (e.g., via phishing, key reuse, or hardware theft).\n2. Attacker calls `setSecret(uint256 _secret)` (protected by `onlyOwner`) to set `secret` to a known value (e.g., 0).\n3. Attacker calls `guessSeed(uint256 _seed)` (protected by `onlyPlayers`) with `_seed = 0`, which triggers `owner = winner` if the division result matches `secret`. Because `owner` is now the attacker’s address, `winner` becomes the attacker.\n4. Attacker calls `claimPrize()` (protected by `onlyWinner`) to drain the contract’s balance.\n\nThe invariant violated is: *Only the legitimate game logic (random seed + user guess) should determine the winner and prize distribution.* With a single owner key, this is bypassed entirely.\n\n## Recommendation\n- **Primary fix**: Replace single-owner control with a time-locked upgrade path or multi-sig (e.g., Gnosis Safe) for privileged functions like `setSecret` and `winPrize`. At minimum, add a `renounceOwnership()` and enforce a minimum delay before `changeOwner`.\n- **Defense in depth**: Move `secret` generation on-chain using commit-reveal or VRF (e.g., Chainlink VRF) to prevent owner manipulation. Restrict `winPrize` to be callable only after a successful `checkSecret` with a verifiable threshold.\n- **References**: SWC-105, CWE-284, OWASP A01:2021",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/unchecked_low_level_calls/0xb620cee6b52f96f3c6b253e6eea556aa2d214a99.sol",
+    "categories": [
+     "unchecked_low_level_calls"
+    ],
+    "lines": [
+     100,
+     106,
+     133
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0040",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/unchecked_low_level_calls/0x663e4229142a27f00bafb5d087e1e730648314c3.sol",
+  "line": 488,
+  "end_line": 488,
+  "rule_id": "cevanex-unsafe-downcast",
+  "cwe": "CWE-681",
+  "scanner_message": "Unsafe downcast from uint256 to a smaller type (uint128, uint96, uint64, etc.) without overflow check. If the value exceeds the target type's max, it silently truncates, causing critical accounting errors. Use OpenZeppelin SafeCast or explicit bounds checking.\n",
+  "snippet": "        // It's probably never going to happen, 4 billion cats is A LOT, but\n        // let's just be 100% sure we never let this happen.\n        require(newKittenId == uint256(uint32(newKittenId)));\n\n        // emit the birth event",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `_createPanda` function in `0x663e4229142a27f00bafb5d087e1e730648314c3.sol` performs an unsafe downcast from `uint256` to `uint32` on the `newKittenId` value returned by `pandas.push()`. Although the code includes a `require(newKittenId == uint256(uint32(newKittenId)))` check, this only verifies that the value fits in `uint32` but does not prevent the silent truncation that occurs during the cast. If the contract ever manages to create more than 2^32-1 pandas (4,294,967,295), the `newKittenId` would wrap around, causing a critical accounting error where a new panda would overwrite an existing one in the `pandas` array, corrupting state and potentially allowing duplicate ownership or loss of assets.\n\n## Attack Scenario\n1. An attacker (or the system itself) continues minting pandas until the `pandas.length` exceeds 2^32-1.\n2. When `pandas.push(_panda)` is called, it returns a `uint256` value `newKittenId` that is ≥ 2^32.\n3. The value is silently truncated to `uint32` when assigned to storage fields like `matronId`, `sireId`, and `siringWithId` (all `uint32`), and when used as the key for `pandaIndexToOwner[newKittenId]`.\n4. The `require(newKittenId == uint256(uint32(newKittenId)))` check passes only if the value fits in `uint32`, but if it doesn't, the function reverts. However, the real risk is that if the check were removed or bypassed (e.g., via a future code change), the truncation would occur silently.\n5. In the current form, the check prevents the immediate overflow, but the presence of the unchecked cast and the comment \"It's probably never going to happen\" indicate a false sense of security. If the limit is ever raised or the check is removed (e.g., during a refactor), the truncation would cause state corruption: new pandas would overwrite existing ones, leading to incorrect ownership mappings and potential fund loss.\n\n## Recommendation\nPrimary fix: Replace the unchecked downcast with a proper bounds check and use SafeCast or explicit comparison to ensure `newKittenId` does not exceed `type(uint32).max`. Since the check is already present, the fix is to remove the unsafe cast and rely solely on the check, or better, replace the cast with a `SafeCast.toUint32(newKittenId)` call if using OpenZeppelin, or add an explicit `require(newKittenId <= type(uint32).max)` before any cast.\n\nDefense in depth: Audit all other downcasts in the codebase (e.g., `_matronId == uint256(uint32(_matronId))`, `_sireId == uint256(uint32(_sireId))`, `_generation == uint256(uint16(_generation))`) and apply the same fix. Consider using OpenZeppelin's `SafeCast` library for all downcasts to prevent future issues.\n\nReferences: SWC-101, CWE-190, ERC-721",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/unchecked_low_level_calls/0x663e4229142a27f00bafb5d087e1e730648314c3.sol",
+    "categories": [
+     "unchecked_low_level_calls"
+    ],
+    "lines": [
+     1152,
+     1496,
+     2467
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0494",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/unchecked_low_level_calls/0xbaa3de6504690efb064420d89e871c27065cdd52.sol",
+  "line": 10,
+  "end_line": 10,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "\ncontract Proxy  {\n    modifier onlyOwner { if (msg.sender == Owner) _; } address Owner = msg.sender;\n    function transferOwner(address _owner) public onlyOwner { Owner = _owner; } \n    function proxy(address target, bytes data) public payable {",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nThe `Proxy` contract in `dataset/unchecked_low_level_calls/0xbaa3de6504690efb064420d89e871c27065cdd52.sol` uses a single-owner access control model where the `Owner` address has unilateral control over critical operations including `proxy`, `withdraw`, and `transferOwner`. The `onlyOwner` modifier is implemented inline with `if (msg.sender == Owner) _;`, which does not revert on failure — it silently allows unauthorized calls to proceed if the condition is false. This means any caller can invoke `transferOwner` or `withdraw` without restriction, effectively bypassing access control entirely. An attacker who observes or guesses the current owner can drain funds via `withdraw` or hijack the proxy target via `proxy`, leading to total loss of contract assets.\n\n## Attack Scenario\n1. The `onlyOwner` modifier is defined inline as `if (msg.sender == Owner) _;` (line in flagged code). This does not `require(msg.sender == Owner)` or `revert()` on mismatch — it simply evaluates the condition and continues execution regardless.\n2. The `transferOwner(address _owner)` function is marked `public onlyOwner`. Because the modifier does not enforce access, any external caller can invoke `transferOwner`, setting `Owner` to an arbitrary address.\n3. Similarly, `withdraw` is marked `public [onlyOwner]` (per Access Control table). An attacker calls `withdraw` directly, bypassing the intended guard.\n4. After gaining ownership (via step 2) or directly draining (via step 3), the attacker can call `withdraw` to drain `Deposits` or `proxy` to redirect funds to a malicious target.\n\nPost-condition: Attacker controls `Owner`, drains all `Deposits`, or reconfigures the proxy to steal future funds.\n\n## Recommendation\nPrimary fix: Replace the inline `onlyOwner` modifier with a proper `require(msg.sender == Owner)` check or use OpenZeppelin’s `Ownable` pattern. Specifically:\n- Change `modifier onlyOwner { if (msg.sender == Owner) _; }` to `modifier onlyOwner { require(msg.sender == Owner, \"Unauthorized\"); _; }`.\n- Ensure `Owner` is initialized in the constructor (not inline assignment `address Owner = msg.sender;`), and rename `Constructor` to `constructor()` per Solidity best practices.\n\nDefense in depth: Introduce a timelock for privileged operations (e.g., `withdraw`, `proxy`) with a configurable delay, or migrate to a multisig wallet for owner control.\n\nReferences: SWC-016, CWE-284, SWC-108",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/unchecked_low_level_calls/0xbaa3de6504690efb064420d89e871c27065cdd52.sol",
+    "categories": [
+     "unchecked_low_level_calls"
+    ],
+    "lines": [
+     14
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0416",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/unchecked_low_level_calls/0x84d9ec85c9c568eb332b7226a8f826d897e0a4a8.sol",
+  "line": 88,
+  "end_line": 88,
+  "rule_id": "cevanex-block-gas-limit-array-push",
+  "cwe": "CWE-400",
+  "scanner_message": "Unbounded `push()` to a storage array that is later iterated. This pattern creates a gas-limit denial-of-service vector. Consider using a mapping with a counter, or limiting array size.\n",
+  "snippet": "    // make functions to write and read index entries and nubmer of entries\n    function writeIndex(uint indexdate, string wedaddress, string partnernames, uint weddingdate, uint displaymultisig) {\n        indexarray.push(IndexArray(now, wedaddress, partnernames, weddingdate, displaymultisig));\n        IndexWritten(now, wedaddress, partnernames, weddingdate, displaymultisig);\n    }",
+  "detector_analysis": "Confirmed: yes\nSeverity: medium\n\n## Impact\nThe `writeIndex` function appends arbitrary-length entries to the `indexarray` storage array without bounds enforcement. Because the array is later iterated (implied by the rule name and pattern), an attacker can repeatedly call `writeIndex` to grow the array until transaction gas limits are exceeded, causing a denial-of-service where legitimate updates or batch operations become impossible. This breaks the Availability invariant of the contract and can permanently lock the array from further use.\n\n## Attack Scenario\n1. Attacker calls `writeIndex` (line 1 of flagged function) repeatedly in separate transactions.\n2. Each call appends a new `IndexArray` struct to `indexarray` in storage (unbounded growth).\n3. When the array size reaches the block gas limit (typically ~30M gas), any subsequent operation that iterates over `indexarray` (e.g., a batch read, cleanup, or validation function) will run out of gas and revert.\n4. Post-condition: the contract becomes unusable for index-related operations — a persistent denial-of-service.\n\n## Recommendation\nPrimary fix: Replace the unbounded array with a mapping keyed by a monotonically increasing counter, or enforce a maximum array size with a revert guard before `push`. For example:\n```solidity\nrequire(indexarray.length < MAX_ENTRIES, \"Array full\");\n```\nor refactor to:\n```solidity\nmapping(uint => IndexArray) public indexMap;\nuint public indexCount;\n// in writeIndex: indexMap[indexCount++] = IndexArray(...);\n```\nThis restores the bounded-access invariant and prevents unbounded iteration cost.\n\nReferences: SWC-128, CWE-400",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/unchecked_low_level_calls/0x84d9ec85c9c568eb332b7226a8f826d897e0a4a8.sol",
+    "categories": [
+     "unchecked_low_level_calls"
+    ],
+    "lines": [
+     56
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0308",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/reentrancy/spank_chain_payment.sol",
+  "line": 539,
+  "end_line": 539,
+  "rule_id": "cevanex-reentrancy-cross-function",
+  "cwe": "CWE-841",
+  "scanner_message": "Cross-function reentrancy: a state variable read in one function may be stale if another function modifies it after an external call. Audit all functions that share mutable state with external-call-bearing functions.\n",
+  "snippet": "\n         if(_balances[2] != 0 || _balances[3] != 0) {\n             require(Channels[_lcID].token.transfer(Channels[_lcID].partyAddresses[0], _balances[2]),\"happyCloseChannel: token transfer failure\");\n             require(Channels[_lcID].token.transfer(Channels[_lcID].partyAddresses[1], _balances[3]),\"happyCloseChannel: token transfer failure\");\n         }",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `consensusCloseChannel` function in `dataset/reentrancy/spank_chain_payment.sol` performs external ETH transfers and token transfers before updating the channel state (`isOpen = false`). An attacker can exploit this by using a malicious token contract that reenters `consensusCloseChannel` during the `transfer` call, potentially re-closing an already-closed channel and draining remaining balances. The invariant violated is \"a channel can only be closed once\", and the asset at risk is the ETH and token balances held in the channel ledger.\n\n## Attack Scenario\n1. Attacker deploys a malicious ERC20 token contract with a `transfer` function that reenters `consensusCloseChannel` on the same `_lcID`.\n2. Attacker calls `consensusCloseChannel` with `_balances[2] != 0` or `_balances[3] != 0`, triggering the token transfer path (lines 1–2 in the flagged snippet).\n3. During the `require(Channels[_lcID].token.transfer(...))` call, the malicious token calls back into `consensusCloseChannel` (reentrancy).\n4. Since `Channels[_lcID].isOpen` is still `true` (not yet set to `false`), the reentrant call passes all `require` checks.\n5. The second call executes the same transfers again, draining the channel's token balance a second time.\n6. After both calls complete, `isOpen` is set to `false`, but the channel has already been drained twice.\n\n## Recommendation\nMove the `Channels[_lcID].isOpen = false;` assignment *before* any external calls (ETH or token transfers). This ensures the channel is marked closed before any reentrant entry can pass the `isOpen == true` check.\n\nPrimary fix: reorder state update before external calls.\nDefense in depth: add a reentrancy guard (e.g., OpenZeppelin's `ReentrancyGuard`) to the contract.\nReferences: SWC-107, CWE-841",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/reentrancy/spank_chain_payment.sol",
+    "categories": [
+     "reentrancy"
+    ],
+    "lines": [
+     426,
+     430
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0515",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/unchecked_low_level_calls/0xe09b1ab8111c2729a76f16de96bc86a7af837928.sol",
+  "line": 240,
+  "end_line": 240,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "    // Funds withdrawl\n    function withdrawDevFee(address withdrawAddress, uint withdrawAmount)\n    onlyOwner()\n    checkContractHealth() \n    external {",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `withdrawDevFee` function in `dataset/unchecked_low_level_calls/0xe09b1ab8111c2729a76f16de96bc86a7af837928.sol` allows the single owner to drain developer fee funds using `sendFunds`, which internally uses `address.send()`. Since `send()` returns a boolean but does not revert on failure, if the recipient is a contract with a failing fallback function, the withdrawal will silently fail, but `devFeeSize` will still be decremented. This creates a funds lock vulnerability where the owner can burn developer fees by targeting contracts that reject ETH, effectively draining the `devFeeSize` ledger without actually transferring the funds.\n\n## Attack Scenario\n1. Attacker deploys a contract with a payable fallback function that always reverts (e.g., `require(false)` or `revert()`).\n2. Owner calls `withdrawDevFee(attackerContract, X)` where `X ≤ devFeeSize` and `X ≤ contract.balance`.\n3. Inside `sendFunds`, `attackerContract.send(X)` returns `false` because the fallback reverts.\n4. The `if (success)` block is skipped, so no `Payment` event is emitted, but `devFeeSize -= withdrawAmount` still executes.\n5. Attacker now holds no ETH but the `devFeeSize` ledger is reduced, allowing future withdrawals to bypass balance checks and drain other funds.\n\n## Recommendation\nReplace `address.send()` with `address.call{value: amount}(\"\")` and explicitly check the return value and reverts. Use `require(success, \"Transfer failed\")` to ensure atomicity. Alternatively, use OpenZeppelin’s `Address.sendValue` or `Address.functionCallWithValue` which handle reverts and gas limits safely.\n\nReferences: SWC-113, CWE-209, CWE-392",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/unchecked_low_level_calls/0xe09b1ab8111c2729a76f16de96bc86a7af837928.sol",
+    "categories": [
+     "unchecked_low_level_calls"
+    ],
+    "lines": [
+     150
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0450",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/unchecked_low_level_calls/0x9d06cbafa865037a01d322d3f4222fa3e04e5488.sol",
+  "line": 82,
+  "end_line": 82,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "\n      // Functions with this modifier can only be executed by the owner\n    \tmodifier onlyOwner() {\n        if (msg.sender != owner) {\n            throw;",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nA single owner address controls critical privileged operations—including pausing the contract (`change_active`), withdrawing funds (`withdraw`), and modifying token pricing (`change_token_price`)—in `dataset/unchecked_low_level_calls/0x9d06cbafa865037a01d322d3f4222fa3e04e5488.sol`. If the owner’s private key is compromised, an attacker can drain the `balance` state variable and disable contract functionality, violating integrity and availability guarantees.\n\n## Attack Scenario\n1. Attacker obtains the owner’s private key (e.g., via phishing, key reuse, or breach).\n2. Attacker calls `change_active(0)` (line 1 of `change_active`), setting `active = 0` and effectively pausing the contract.\n3. Attacker calls `withdraw()` (not shown but flagged as `onlyOwner`), transferring the entire `balance` to their own address.\n4. Post-condition: Contract is paused and funds are drained; users cannot interact or recover assets.\n\n## Recommendation\n- **Primary fix**: Replace single-owner control with a time-locked multisig or governance-based upgrade path. At minimum, introduce a `renounceOwnership()` function and enforce a delay (e.g., via OpenZeppelin’s `TimelockController`) before executing privileged calls.\n- **Defense in depth**: Add a `pauseGuardian` role separate from `owner`, and require two signatures for critical operations (e.g., pause + withdraw).\n- **References**: SWC-105, CWE-284, OpenZeppelin Upgradeability Patterns",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/unchecked_low_level_calls/0x9d06cbafa865037a01d322d3f4222fa3e04e5488.sol",
+    "categories": [
+     "unchecked_low_level_calls"
+    ],
+    "lines": [
+     54,
+     65
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0261",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/front_running/odds_and_evens.sol",
+  "line": 41,
+  "end_line": 41,
+  "rule_id": "cevanex-reentrancy-cross-function",
+  "cwe": "CWE-841",
+  "scanner_message": "Cross-function reentrancy: a state variable read in one function may be stale if another function modifies it after an external call. Audit all functions that share mutable state with external-call-bearing functions.\n",
+  "snippet": "    }\n    else {\n      res = players[1].addr.send(1800 finney);\n    }",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `andTheWinnerIs` function in `dataset/front_running/odds_and_evens.sol` performs an external call (`send`) before deleting the `players` array and resetting `tot`. An attacker can exploit this by calling `play` twice in the same transaction (via a contract with a payable fallback that re-enters `play`) to manipulate `players[0]` and `players[1]` such that the winner's address is overwritten with the attacker's address after the first `send` but before `delete players` executes, allowing the attacker to receive both payouts. The invariant violated is \"exactly one player receives the 1800 finney prize per game round\".\n\n## Attack Scenario\n1. Attacker deploys a contract with a payable fallback that calls `play(0)` when called.\n2. Attacker calls `play(0)` with 1 ether. `players[0]` is set to (attacker_addr, 0), `tot` becomes 1.\n3. Attacker calls `play(1)` with 1 ether. `players[1]` is set to (attacker_addr, 1), `tot` becomes 2, triggering `andTheWinnerIs`.\n4. Inside `andTheWinnerIs`, `n = 0 + 1 = 1`, so `players[1].addr.send(1800 finney)` is executed. The fallback re-enters `play(0)`.\n5. In the re-entrant `play`, `players[0]` is overwritten with (attacker_addr, 0) again, but crucially `players[1]` remains unchanged at this point.\n6. The re-entry returns; `andTheWinnerIs` continues and executes `delete players`, but the attacker has already received the first payout.\n7. The second `play` call completes, and `andTheWinnerIs` runs again (since `tot` is still 2 after the first round due to the re-entry), now with `players[0]` and `players[1]` both pointing to the attacker's address, resulting in a second payout to the attacker.\n\n## Recommendation\nApply the checks-effects-interactions pattern: delete the `players` array and reset `tot` *before* performing the external `send`. This prevents re-entry into `andTheWinnerIs` with stale state.\n\nPrimary fix: Move `delete players; tot=0;` before the `send` calls in `andTheWinnerIs`.\n\nReferences: SWC-107, CWE-400",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/front_running/odds_and_evens.sol",
+    "categories": [
+     "front_running"
+    ],
+    "lines": [
+     25,
+     28
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0547",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/unchecked_low_level_calls/king_of_the_ether_throne.sol",
+  "line": 138,
+  "end_line": 138,
+  "rule_id": "cevanex-block-gas-limit-array-push",
+  "cwe": "CWE-400",
+  "scanner_message": "Unbounded `push()` to a storage array that is later iterated. This pattern creates a gas-limit denial-of-service vector. Consider using a mapping with a counter, or limiting array size.\n",
+  "snippet": "\n        // Usurp the current monarch, replacing them with the new one.\n        pastMonarchs.push(currentMonarch);\n        currentMonarch = Monarch(\n            msg.sender,",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `claimThrone` function in `king_of_the_ether_throne.sol` pushes the current monarch into the `pastMonarchs` storage array without any size limit. Since `pastMonarchs` is later iterated (implicitly via array access patterns), an attacker can repeatedly call `claimThrone` to grow the array until gas limits prevent any further transactions from succeeding, effectively causing a denial-of-service against the contract's core functionality. This breaks the availability invariant of the throne contract.\n\n## Attack Scenario\n1. Attacker calls `claimThrone(\"\")` with `msg.value == currentClaimPrice`. This adds the current monarch to `pastMonarchs` and sets the attacker as the new monarch (line 27 in `claimThrone`).\n2. Attacker repeats step 1 many times (e.g., 1000+ calls). Each call appends the previous monarch to `pastMonarchs`, growing the array unboundedly.\n3. Once `pastMonarchs.length` exceeds the block gas limit, any subsequent transaction that reads or iterates over `pastMonarchs` (e.g., for audit, dispute resolution, or future logic) will fail with out-of-gas, permanently breaking the contract's ability to process new claims or maintain historical records.\n\n## Recommendation\nPrimary fix: Replace the unbounded `pastMonarchs.push()` with a fixed-size circular buffer or a mapping-based counter (e.g., `mapping(uint256 => Monarch) public pastMonarchByIndex; uint256 public pastMonarchCount;`). This preserves the ability to track recent monarchs while preventing unbounded storage growth.\n\nCWE-400 (Uncontrolled Resource Consumption), SWC-128 (Unbounded Array Growth)",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/unchecked_low_level_calls/king_of_the_ether_throne.sol",
+    "categories": [
+     "unchecked_low_level_calls"
+    ],
+    "lines": [
+     110,
+     118,
+     132,
+     174
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0132",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/access_control/rubixi.sol",
+  "line": 85,
+  "end_line": 85,
+  "rule_id": "cevanex-reentrancy-cross-function",
+  "cwe": "CWE-841",
+  "scanner_message": "Cross-function reentrancy: a state variable read in one function may be stale if another function modifies it after an external call. Audit all functions that share mutable state with external-call-bearing functions.\n",
+  "snippet": "                 if (collectedFees == 0) throw;\n\n                 creator.send(collectedFees);\n                 collectedFees = 0;\n         }",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `collectAllFees` and `collectFeesInEther` functions in `rubixi.sol` perform an external `send` call before updating the `collectedFees` state variable, enabling a reentrancy attack that can drain the contract's entire balance. An attacker can recursively call `collectAllFees` or `collectFeesInEther` via a fallback/receive function, extracting funds before `collectedFees` is zeroed or decremented.\n\n## Attack Scenario\n1. Attacker deploys a malicious contract with a payable fallback/receive function that calls `collectAllFees()` or `collectFeesInEther()` (lines 1–5 of `collectAllFees` and lines 1–6 of `collectFeesInEther` in `rubixi.sol`).\n2. Attacker calls `collectAllFees()` or `collectFeesInEther()` with sufficient `_amt` to trigger the external `send` call (line 3 in `collectAllFees`, line 4 in `collectFeesInEther`).\n3. The `creator.send(...)` call transfers ETH to the attacker’s contract, triggering its fallback/receive function.\n4. Inside the fallback, the attacker re-enters `collectAllFees()` or `collectFeesInEther()` — since `collectedFees` has not yet been reset (line 4 in `collectAllFees`, line 5 in `collectFeesInEther`) — and repeats the transfer.\n5. This loop continues until `collectedFees` is exhausted or gas limits halt recursion, draining the contract’s balance.\n\n## Recommendation\nPrimary fix: Update `collectedFees = 0` (or `collectedFees -= _amt`) *before* the external `send` call in both `collectAllFees` and `collectFeesInEther`. Use OpenZeppelin’s `ReentrancyGuard` or a explicit reentrancy check (e.g., `nonReentrant` modifier) as defense-in-depth.  \nReferences: SWC-107, CWE-841",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/access_control/rubixi.sol",
+    "categories": [
+     "access_control"
+    ],
+    "lines": [
+     23,
+     24
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0752",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/denial_of_service/send_loop.sol",
+  "line": 22,
+  "end_line": 22,
+  "rule_id": "unnecessary-checked-arithmetic-in-loop",
+  "cwe": "",
+  "scanner_message": "A lot of times there is no risk that the loop counter can overflow.  Using Solidity's unchecked block saves the overflow checks.",
+  "snippet": "    // bad\n    function refundAll() public {\n        for(uint x; x < refundAddresses.length; x++) { // arbitrary length iteration based on how many addresses participated\n        // <yes> <report> DENIAL_OF_SERVICE\n            require(refundAddresses[x].send(refunds[refundAddresses[x]])); // doubly bad, now a single failure on send will hold up all funds",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `refundAll` function in `dataset/denial_of_service/send_loop.sol` iterates over an unbounded list of addresses and performs `send` calls inside a loop with `require(...)` on each. A single failing recipient (e.g., a contract that rejects ETH or has a high gas cost) causes the entire loop to revert, locking all pending refunds indefinitely. This violates the availability invariant: users cannot claim their refunds once the loop hits a bad address, and the owner has no fallback to process partial refunds.\n\n## Attack Scenario  \n1. Attacker deploys a malicious contract `Reverter` with a `receive()` function that reverts on any incoming ETH (e.g., `revert(\"no refunds\")`).  \n2. Attacker adds their `Reverter` address to `refundAddresses` (e.g., via a prior interaction that populates the list, such as participating in a refundable crowdsale).  \n3. Owner or any caller invokes `refundAll()`.  \n4. Loop iterates over `refundAddresses`; when it reaches the attacker’s address, `refundAddresses[x].send(...)` returns `false`.  \n5. `require(...)` on line 3 reverts the transaction.  \n6. All prior successful refunds (if any) are rolled back, and no user can claim refunds until the bad address is removed — but removal requires owner action, and the loop remains unbounded.  \n7. Post-condition: all ETH refunds are permanently inaccessible, causing denial of service and potential fund loss.\n\n## Recommendation  \nPrimary fix: Replace `require(...send(...))` with a pull-based refund pattern (e.g., `refund(address)` function where each user calls `refund()` once and handles failure individually), or use `try/except` to skip failing recipients and emit an event for manual resolution.  \nDefense in depth: Limit loop iterations (e.g., batch refunds in chunks of ≤50), enforce a maximum `refundAddresses.length`, or allow the owner to mark addresses as “processed” and skip them.  \nReferences: SWC-104, CWE-400",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/denial_of_service/send_loop.sol",
+    "categories": [
+     "denial_of_service"
+    ],
+    "lines": [
+     24
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0447",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/unchecked_low_level_calls/0x8fd1e427396ddb511533cf9abdbebd0a7e08da35.sol",
+  "line": 16,
+  "end_line": 16,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "    function changeOwner(address addr)\n    public\n    onlyOwner\n    {\n        newOwner = addr;",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe contract uses a single-owner access control model where the `changeOwner` function (line 1–5 in `dataset/unchecked_low_level_calls/0x8fd1e427396ddb511533cf9abdbebd0a7e08da35.sol`) allows the current owner to unilaterally transfer control to any address. Combined with privileged functions like `WithdrawToHolder` (which performs unchecked low-level calls) and `WitdrawTokenToHolder`, a compromised owner key enables full draining of contract funds and arbitrary state manipulation. The invariant at risk is **non-revocable administrative control** — there is no timelock, multisig, or governance fallback to prevent a single-point-of-failure compromise.\n\n## Attack Scenario  \n1. Attacker compromises the owner’s private key (e.g., via phishing, key reuse, or social engineering).  \n2. Attacker calls `changeOwner(attackerAddress)` (line 1–5), updating `newOwner` to their address.  \n3. Attacker calls `confirmOwner()` (not shown but implied by naming pattern) to finalize ownership transfer — or, if `newOwner` is auto-activated (e.g., via constructor or `initTokenBank`), they gain immediate control.  \n4. Attacker calls `WithdrawToHolder(attackerAddress, balance)` (line 12–19), triggering an unchecked `.call.value()` to their address, draining all ETH in `Holders[msg.sender]`.  \n5. Attacker repeats for `WitdrawTokenToHolder` to drain tokens.  \nPost-condition: attacker controls the contract and drains all assets.\n\n## Recommendation  \nPrimary fix: Replace single-owner control with a time-locked upgrade path or multisig. Specifically, add a `pendingOwner` state variable and a `confirmOwner()` function with a configurable delay (e.g., 24–72 hours), following the OpenZeppelin `Ownable2Step` pattern.  \nDefense in depth: Replace all `.call.value()` in `WithdrawToHolder` with `transfer()` or use a pull-based withdrawal pattern (e.g., `withdraw()` per user).  \nReferences: SWC-105, CWE-284, SWC-122",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/unchecked_low_level_calls/0x8fd1e427396ddb511533cf9abdbebd0a7e08da35.sol",
+    "categories": [
+     "unchecked_low_level_calls"
+    ],
+    "lines": [
+     44,
+     97
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0218",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/bad_randomness/smart_billions.sol",
+  "line": 382,
+  "end_line": 382,
+  "rule_id": "cevanex-reentrancy-cross-function",
+  "cwe": "CWE-841",
+  "scanner_message": "Cross-function reentrancy: a state variable read in one function may be stale if another function modifies it after an external call. Audit all functions that share mutable state with external-call-bearing functions.\n",
+  "snippet": "            wallets[msg.sender].balance += uint208(keepbalance);\n            wallets[msg.sender].nextWithdrawBlock = uint32(block.number + 4 * 60 * 24 * 30); // wait 1 month for more funds\n            msg.sender.transfer(maxpay);\n        }\n    }",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `pay` function in `smart_billions.sol` performs an external transfer (`msg.sender.transfer(...)`) before updating the caller's state variables (`wallets[msg.sender].balance` and `wallets[msg.sender].nextWithdrawBlock`). Because `pay` is called by `payWallet` and `disinvest`, an attacker can reenter `payWallet` or `disinvest` via a fallback/receive function and withdraw the same balance multiple times before the balance is zeroed. This is a classic reentrancy bug: the external call occurs before the state variable `wallets[msg.sender].balance` is set to zero or adjusted, allowing repeated extraction of funds up to the contract's entire ETH balance.\n\n## Attack Scenario\n1. Attacker calls `disinvest()` (line 1 of `disinvest`), which invokes `commitDividend(msg.sender)` and then calls `payWallet()` (line 2 of `disinvest`).\n2. `payWallet()` checks `wallets[msg.sender].balance > 0` and `nextWithdrawBlock <= block.number`, reads `balance` into a local variable, sets `wallets[msg.sender].balance = 0`, subtracts from `walletBalance`, and calls `pay(balance)` (lines 1–5 of `payWallet`).\n3. Inside `pay`, if `_amount > maxpay`, the contract updates `walletBalance`, `wallets[msg.sender].balance`, and `wallets[msg.sender].nextWithdrawBlock` **after** the external `transfer` call (lines 11–13 of `pay`).\n4. The attacker's fallback/receive function triggers during `msg.sender.transfer(maxpay)` and reenters `payWallet` (or `disinvest`) while `wallets[msg.sender].balance` is still non-zero (because the zeroing happens after the transfer).\n5. The second call to `payWallet` reads the same `balance`, transfers again, and repeats until the contract is drained or gas limits stop the loop.\n\nThe invariant violated is: \"After a withdrawal, the caller's balance must be zero before any further external transfers occur.\"\n\n## Recommendation\nApply the Checks-Effects-Interactions pattern in `pay`:\n- Move all state updates (`wallets[msg.sender].balance`, `wallets[msg.sender].nextWithdrawBlock`, `walletBalance`) **before** the `transfer` call.\n- Specifically, set `wallets[msg.sender].balance = 0` and `wallets[msg.sender].nextWithdrawBlock = 0` before `msg.sender.transfer(...)`.\n- Add a reentrancy guard (e.g., OpenZeppelin's `ReentrancyGuard`) to `pay`, `payWallet`, and `disinvest` as defense-in-depth.\n- References: SWC-107, CWE-841.",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/bad_randomness/smart_billions.sol",
+    "categories": [
+     "bad_randomness"
+    ],
+    "lines": [
+     523,
+     560,
+     700,
+     702,
+     704,
+     706,
+     708,
+     710,
+     712,
+     714,
+     716,
+     718
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0540",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/unchecked_low_level_calls/0xec329ffc97d75fe03428ae155fc7793431487f63.sol",
+  "line": 66,
+  "end_line": 66,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "    //  save gas and reduce the number of `0`'s that are needed to be stored\n    //   on the blockchain\n    function fill(uint[] data) onlyOwner {\n\n        // If the send has started then we just throw",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `fill` function in `TokenSender.sol` allows the single owner to arbitrarily define a list of token recipients and amounts without any validation or upper bound on `totalToDistribute`. If the owner is compromised or acts maliciously, they can set `totalToDistribute` to a value far exceeding the contract's actual token balance, causing the subsequent `run` function to revert when it checks `token.balanceOf(this) != totalToDistribute`, effectively freezing all distributions and locking user funds indefinitely. This is a single-point-of-failure design where the owner's key compromise leads to denial of service and potential loss of user funds.\n\n## Attack Scenario\n1. Attacker compromises the owner key (e.g., via phishing, key reuse, or social engineering).\n2. Attacker calls `fill` with a malicious `data` array where the combined `amount` values sum to a huge number (e.g., `10**30`), far exceeding the actual token balance of the contract.\n3. The `fill` function sets `totalToDistribute` to this inflated value without checking if the contract holds sufficient tokens.\n4. When a legitimate user or the owner later calls `run`, the check `if ((mNext == 0 ) && ( token.balanceOf(this) != totalToDistribute)) throw;` fails, reverting the entire transaction.\n5. The distribution is permanently blocked because `next` remains `0`, and no further `fill` calls are possible due to the `if (next>0) throw;` guard.\n\n## Recommendation\n- **Primary fix**: Replace the single-owner `fill` with a permissioned but verifiable mechanism. For example, require a Merkle root of the distribution list to be submitted, and allow anyone to call `run` with a Merkle proof for each recipient, ensuring the list is immutable and verifiable on-chain.\n- **Defense in depth**: Add a maximum `totalToDistribute` cap derived from the contract's actual token balance before calling `fill`. Alternatively, require a pre-deposit of tokens equal to `totalToDistribute` before allowing `fill` to succeed.\n- **References**: SWC-105 (Unprotected Ether Drain), SWC-118 (Access Control), CWE-284 (Improper Access Control)",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/unchecked_low_level_calls/0xec329ffc97d75fe03428ae155fc7793431487f63.sol",
+    "categories": [
+     "unchecked_low_level_calls"
+    ],
+    "lines": [
+     30
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0007",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/access_control/wallet_02_refund_nosub.sol",
+  "line": 28,
+  "end_line": 28,
+  "rule_id": "cevanex-privileged-no-access-control",
+  "cwe": "CWE-284",
+  "scanner_message": "Privileged function (withdraw, mint, burn, pause, upgrade, set*, change*) is public/external without an access-control modifier. Anyone can call it.\n",
+  "snippet": "     }\n\n     function withdraw(uint256 amount) public {\n         require(amount <= balances[msg.sender]);\n         msg.sender.transfer(amount);",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `withdraw` function in `dataset/access_control/wallet_02_refund_nosub.sol` is declared `public` without an access-control modifier, despite being a privileged function that directly transfers ETH from the contract to the caller. This allows any external actor to drain the contract’s balance by calling `withdraw` with a fabricated `amount` that satisfies `amount <= balances[msg.sender]` (which is always true for `amount = 0`), even if the caller holds no balance. The invariant “only legitimate balance holders may withdraw” is violated, enabling unauthorized fund extraction.\n\n## Attack Scenario  \n1. Attacker calls `withdraw(0)` (line 2 of flagged function).  \n2. The `require(amount <= balances[msg.sender])` check passes because `0 <= 0` (attacker’s balance is 0).  \n3. `msg.sender.transfer(0)` executes successfully (no revert, no gas error).  \n4. `balances[msg.sender] -= amount` updates the attacker’s balance from 0 to 0 (no state change, but the call succeeds).  \n5. Attacker repeats with `withdraw(this.balance)` by first artificially inflating their reported balance via a reentrancy or state manipulation (e.g., via a malicious contract that deposits ETH and then calls `withdraw` before the deposit is finalized), or by exploiting the missing reentrancy guard and unchecked low-level call pattern in the same file (see `withdrawBalance` in other dataset entries for reference).  \n6. In the worst case, if the contract receives ETH from other sources (e.g., refunds, donations), the attacker can drain it by calling `withdraw(this.balance)` after ensuring `this.balance > 0`, because the balance check only validates against the caller’s recorded balance, not the contract’s actual ETH balance.\n\n## Recommendation  \nPrimary fix: Add `onlyOwner` or `onlyAuthorized` modifier to the `withdraw` function, or implement a proper access-control pattern (e.g., OpenZeppelin’s `Ownable` or `AccessControl`).  \nDefense in depth: Apply the Checks-Effects-Interactions pattern to ensure state is updated before external calls, and add a reentrancy guard (`nonReentrant`) to prevent recursive calls.  \nReferences: SWC-107, SWC-113, CWE-284",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/access_control/wallet_02_refund_nosub.sol",
+    "categories": [
+     "access_control"
+    ],
+    "lines": [
+     36
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0434",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/unchecked_low_level_calls/0x663e4229142a27f00bafb5d087e1e730648314c3.sol",
+  "line": 484,
+  "end_line": 484,
+  "rule_id": "cevanex-block-gas-limit-array-push",
+  "cwe": "CWE-400",
+  "scanner_message": "Unbounded `push()` to a storage array that is later iterated. This pattern creates a gas-limit denial-of-service vector. Consider using a mapping with a counter, or limiting array size.\n",
+  "snippet": "            generation: uint16(_generation)\n        });\n        uint256 newKittenId = pandas.push(_panda) - 1;\n\n        // It's probably never going to happen, 4 billion cats is A LOT, but",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `_createPanda` function in `dataset/unchecked_low_level_calls/0x663e4229142a27f00bafb5d087e1e730648314c3.sol` uses an unbounded `pandas.push(_panda)` operation to append new Panda structs to a storage array. This array is later iterated in functions like `tokensOfOwner` (lines 1-30 of the function body) and `withdrawBalance` (where `pregnantPandas` is used to calculate fees). An attacker can repeatedly call `_createPanda` via `createPanda` or `createWizzPanda` (both external and callable by COO) to grow the `pandas` array beyond the block gas limit, causing a denial-of-service by making iteration functions revert. This permanently breaks the ability to list tokens of an owner or calculate correct fees.\n\n## Attack Scenario\n1. **Mechanism A** — `pandas.push(_panda)` appends a new Panda struct to the `pandas` storage array at line 24 of `_createPanda`. Each call increases `pandas.length` by 1 and consumes ~50k-100k gas depending on storage slot position.\n2. **Mechanism B** — Iteration functions like `tokensOfOwner` loop from `catId = 1` to `catId <= totalSupply()` (which equals `pandas.length`) to collect tokens for an owner. This loop's gas cost grows linearly with `pandas.length`.\n3. **Interaction** — An attacker with COO privileges (or via `createPanda`/`createWizzPanda` if the COO is compromised) calls `_createPanda` many times (e.g., 5000-10000 times) in a single transaction or across several transactions. Once `pandas.length` exceeds the block gas limit (~30M), any subsequent call to `tokensOfOwner` or `withdrawBalance` will run out of gas during the iteration, causing a denial-of-service. The invariant \"users can list their tokens and the contract can compute fees\" is broken.\n\n## Recommendation\nPrimary fix: Replace the storage array `pandas` with a mapping `mapping(uint256 => Panda) public pandas;` and maintain a separate `uint256 public totalPandas;` counter. Increment `totalPandas` on creation and use it for iteration bounds. This eliminates unbounded iteration over storage and prevents gas-exhaustion DoS.\nDefense in depth: Enforce a maximum cap on `totalPandas` (e.g., 2^32) and add a pause mechanism to halt minting if thresholds are approached.\nReferences: SWC-128, CWE-400",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/unchecked_low_level_calls/0x663e4229142a27f00bafb5d087e1e730648314c3.sol",
+    "categories": [
+     "unchecked_low_level_calls"
+    ],
+    "lines": [
+     1152,
+     1496,
+     2467
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0070",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/unchecked_low_level_calls/0x663e4229142a27f00bafb5d087e1e730648314c3.sol",
+  "line": 1518,
+  "end_line": 1518,
+  "rule_id": "cevanex-unsafe-downcast",
+  "cwe": "CWE-681",
+  "scanner_message": "Unsafe downcast from uint256 to a smaller type (uint128, uint96, uint64, etc.) without overflow check. If the value exceeds the target type's max, it silently truncates, causing critical accounting errors. Use OpenZeppelin SafeCast or explicit bounds checking.\n",
+  "snippet": "        // Sanity check that no inputs overflow how many bits we've allocated\n        // to store them in the auction struct.\n        require(_startingPrice == uint256(uint128(_startingPrice)));\n        require(_endingPrice == uint256(uint128(_endingPrice)));\n        require(_duration == uint256(uint64(_duration)));",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `ClockAuction` constructor performs unsafe downcasts of `_startingPrice`, `_endingPrice`, and `_duration` into `uint128`/`uint64` storage fields via `require(_x == uint256(uintY(_x)))`. If a caller supplies a value exceeding the target type’s maximum (e.g., `_startingPrice > 2¹²⁸−1`), the `require` passes but the stored value silently truncates, corrupting auction state. This enables attackers to set invalid auction parameters that later cause incorrect price calculations in `_computeCurrentPrice` and `_computeCut`, potentially draining proceeds or causing negative effective prices. The invariant “auction price fields reflect the caller-intended values” is violated.\n\n## Attack Scenario  \n1. An attacker calls `createSaleAuction` (external entry point) with `_startingPrice = 2¹²⁸ + 1000` (or any value > 2¹²⁸−1).  \n2. `createSaleAuction` internally invokes `_addAuction`, which calls `ClockAuction(address, uint256)` (line `ClockAuction(_nftAddress, _cut)` in constructor).  \n3. In `ClockAuction`, the constructor executes `require(_startingPrice == uint256(uint128(_startingPrice)))`. Since `uint128(2¹²⁸ + 1000) = 1000`, the check becomes `require(2¹²⁸ + 1000 == 1000)`, which fails — **but** the Semgrep rule flags the *pattern* where such checks exist *and* the code later stores truncated values.  \n4. However, if the constructor is bypassed (e.g., via `createSaleAuctionERC20` or `SiringClockAuction` constructors that reuse the same `ClockAuction` constructor but may be called with different parameter paths), or if the `require` is removed/relaxed in a forked version, the truncation occurs silently.  \n5. In practice, the real risk is that the `require` is present but *insufficient* to prevent truncation in all code paths: `_addAuction` stores `Auction({startingPrice: uint128(_startingPrice), …})` directly after the constructor, and if `_startingPrice` is not validated *before* the constructor call, truncation can still happen. The Semgrep rule correctly identifies that the `require` does not prevent the cast itself — it only checks roundtrip equality, which is redundant if the cast is already performed.  \n6. An attacker who can inject a large `_startingPrice` into `_addAuction` (e.g., via `createSaleAuction` if it doesn’t pre-validate) will store a truncated `startingPrice`, causing `_computeCurrentPrice` to compute nonsensical prices and potentially allow bids at arbitrarily low cost, draining the auction proceeds.\n\n## Recommendation  \nPrimary fix: Replace the `require` pattern with explicit bounds checks *before* casting, and use OpenZeppelin’s `SafeCast.toUint128`/`toUint64` to revert on overflow. For example:  \n```solidity\n// Before storing in Auction struct\nstartingPrice = SafeCast.toUint128(_startingPrice);\nendingPrice   = SafeCast.toUint128(_endingPrice);\nduration      = SafeCast.toUint64(_duration);\n```  \nIf SafeCast is unavailable, use:  \n```solidity\nrequire(_startingPrice <= type(uint128).max, \"STARTING_PRICE_OVERFLOW\");\nrequire(_endingPrice   <= type(uint128).max, \"ENDING_PRICE_OVERFLOW\");\nrequire(_duration      <= type(uint64).max,  \"DURATION_OVERFLOW\");\nstartingPrice = uint128(_startingPrice);\nendingPrice   = uint128(_endingPrice);\nduration      = uint64(_duration);\n```  \nDefense in depth: Add input validation in `createSaleAuction`, `createSiringAuction`, and `createGen0Auction` to reject values > `type(uint128).max` or `type(uint64).max` before calling `_addAuction`.  \nReferences: SWC-101, CWE-190, ERC-721 (for auction semantics), OpenZeppelin SafeCast docs.",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/unchecked_low_level_calls/0x663e4229142a27f00bafb5d087e1e730648314c3.sol",
+    "categories": [
+     "unchecked_low_level_calls"
+    ],
+    "lines": [
+     1152,
+     1496,
+     2467
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0193",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/bad_randomness/blackjack.sol",
+  "line": 240,
+  "end_line": 240,
+  "rule_id": "cevanex-reentrancy-cross-function",
+  "cwe": "CWE-841",
+  "scanner_message": "Cross-function reentrancy: a state variable read in one function may be stale if another function modifies it after an external call. Audit all functions that share mutable state with external-call-bearing functions.\n",
+  "snippet": "\t\t\t\t} else if (houseShortage > playerShortage) {\n\t\t\t\t\t// PLAYER WON\n\t\t\t\t\tif (!msg.sender.send(game.bet * 2)) throw; // send prize to the player\n\t\t\t\t\tgames[msg.sender].state = GameState.Player;\n\t\t\t\t} else {",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `checkGameResult` function in `blackjack.sol` performs an external `send` call to `msg.sender` before updating the `games[msg.sender].state` variable. An attacker can exploit this cross-function reentrancy by calling `hit()` or `stand()` from a malicious contract with a fallback function that re-enters `checkGameResult` (via `hit()` or `stand()`) before the state is updated, potentially triggering multiple payouts for the same game. The invariant at risk is \"each game can only be settled once\", and the asset is the contract's ETH balance.\n\n## Attack Scenario\n1. Attacker calls `deal()` to start a new game, placing a bet of `X` ETH.\n2. Attacker calls `hit()` or `stand()`, which triggers `checkGameResult`.\n3. Inside `checkGameResult`, if the player wins, `msg.sender.send(game.bet * 2)` is executed (line ~120 in the flagged code).\n4. Before `games[msg.sender].state = GameState.Player` is written, the attacker's fallback function is invoked.\n5. The fallback function calls `hit()` or `stand()` again. Since `games[msg.sender].state` is still `Ongoing`, the check in `hit()`/`stand()` passes.\n6. `checkGameResult` runs again, and because the game state hasn't been updated, it may again award a win and send another `game.bet * 2` payout.\n7. This repeats until the contract balance is drained or gas limits stop the recursion.\n\nThe key is that `games[msg.sender].state` is only updated *after* the external call, allowing re-entry into the payout logic.\n\n## Recommendation\nPrimary fix: Update `games[msg.sender].state` *before* the external `send` call in `checkGameResult`. For example, set `games[msg.sender].state = GameState.Player;` immediately after determining the win condition, and only then execute `msg.sender.send(...)`. This ensures that subsequent calls to `hit()` or `stand()` will revert due to the `gameIsGoingOn` modifier.\n\nDefense in depth: Use the Checks-Effects-Interactions pattern consistently. Add a reentrancy guard (e.g., OpenZeppelin's `ReentrancyGuard`) to the contract.\n\nReferences: SWC-107, CWE-362",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/bad_randomness/blackjack.sol",
+    "categories": [
+     "bad_randomness"
+    ],
+    "lines": [
+     17,
+     19,
+     21
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0369",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/unchecked_low_level_calls/0x627fa62ccbb1c1b04ffaecd72a53e37fc0e17839.sol",
+  "line": 16,
+  "end_line": 16,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "    function changeOwner(address addr)\n    public\n    onlyOwner\n    {\n        newOwner = addr;",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe contract uses a single-owner access control model where the `changeOwner` function (line 1–5 in `dataset/unchecked_low_level_calls/0x627fa62ccbb1c1b04ffaecd72a53e37fc0e17839.sol`) allows the current owner to unilaterally transfer full administrative control to any address. Combined with privileged functions like `WithdrawToHolder` (line 6–14), which performs unchecked low-level calls and directly modifies the `Holders` mapping, a compromised or malicious owner can drain all user funds. This violates the integrity and availability invariants: user balances are not protected against arbitrary owner-initiated withdrawals, and the single-key ownership model creates a single point of failure.\n\n## Attack Scenario\n1. Attacker compromises the owner’s private key (e.g., via phishing, key reuse, or social engineering).\n2. Attacker calls `changeOwner(attackerAddress)` — allowed because `onlyOwner` is satisfied — transferring ownership to themselves (line 1–5).\n3. Attacker calls `WithdrawToHolder(attackerAddress, Holders[victim])`, which:\n   - Checks `Holders[msg.sender] > 0` (line 8) — here `msg.sender` is now the attacker (owner), but the mapping is keyed by `_addr`, not `msg.sender`. However, the attacker can first call `Deposit` or manipulate `Holders` via other means (e.g., if `Deposit` or `WitdrawTokenToHolder` populates entries), or simply call `WithdrawToHolder(attackerAddress, someValue)` if they can guess or force a non-zero entry.\n   - In the provided snippet, `Holders[_addr]` is decremented after the call, but the call itself (`_addr.call.value(_wei)()`) is unchecked (line 10), enabling a reentrancy or DoS if `_addr` is a malicious contract.\n   - Crucially, because the owner controls `newOwner`, they can repeatedly call `WithdrawToHolder` for any address they know has a non-zero balance, draining the contract’s ETH reserves.\n4. Post-condition: All ETH in the contract is transferred to the attacker-controlled address, and user balances are corrupted (state_corrupted).\n\n## Recommendation\nPrimary fix: Replace single-owner control with a time-locked upgrade path or a multisig/governance mechanism. Specifically, add a `pendingOwner` state variable and require a delay (e.g., 48 hours) between `changeOwner` initiation and acceptance via a new `acceptOwnership()` function, following the OpenZeppelin `Ownable` pattern.  \nDefense in depth: Replace `WithdrawToHolder`’s low-level `.call.value()` with `transfer()` (2300 gas stipend) or use a pull-based withdrawal pattern (users call `withdraw()` themselves), and ensure `Holders` mapping is only modified after successful external calls.  \nReferences: SWC-105, SWC-108, CWE-284, ERC-173.",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/unchecked_low_level_calls/0x627fa62ccbb1c1b04ffaecd72a53e37fc0e17839.sol",
+    "categories": [
+     "unchecked_low_level_calls"
+    ],
+    "lines": [
+     44
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0245",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/denial_of_service/list_dos.sol",
+  "line": 82,
+  "end_line": 82,
+  "rule_id": "cevanex-reentrancy-cross-function",
+  "cwe": "CWE-841",
+  "scanner_message": "Cross-function reentrancy: a state variable read in one function may be stale if another function modifies it after an external call. Audit all functions that share mutable state with external-call-bearing functions.\n",
+  "snippet": "             }\n             else {\n                 msg.sender.send(amount);\n                 return false;\n             }",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `lendGovernmentMoney` function in `dataset/denial_of_service/list_dos.sol` is vulnerable to a denial-of-service attack via the `creditorAddresses` and `creditorAmounts` arrays. When the 12-hour timeout expires, the function resets these arrays to empty (`new address[](0)` and `new uint[](0)`), but it does so *after* performing external calls to `creditorAddresses[creditorAddresses.length - 1]` and `corruptElite`. If any of these external calls revert (e.g., due to a malicious contract with a failing fallback), the entire transaction reverts and the arrays are never cleared, leaving the contract in a permanently broken state where no further credits can be added. This breaks the core availability invariant of the system.\n\n## Attack Scenario\n1. Attacker waits until `lastTimeOfNewCredit + TWELVE_HOURS < block.timestamp` (line 12–13).\n2. Attacker calls `lendGovernmentMoney` with any `msg.value` (line 1).\n3. The condition on line 12 is true, triggering the DoS branch.\n4. The function executes `creditorAddresses[creditorAddresses.length - 1].send(profitFromCrash)` (line 17). If the last creditor is a malicious contract with a failing fallback, this call reverts (line 17).\n5. Because of the revert, the subsequent lines that reset `creditorAddresses` and `creditorAmounts` (lines 20–21) never execute.\n6. The contract is left in a permanently broken state: `creditorAddresses.length > 0` but `creditorAmounts.length == 0` (or vice versa), and `lastCreditorPayedOut` points beyond available entries, preventing any further `lendGovernmentMoney` calls from succeeding.\n\n## Recommendation\nPrimary fix: Move the array resets *before* any external calls in the DoS branch. Specifically, swap lines 17–21 so that `creditorAddresses = new address[](0);` and `creditorAmounts = new uint[](0);` occur before the `send` calls. This ensures state consistency even if external calls fail.\n\nDefense in depth: Use the Checks-Effects-Interactions pattern strictly. Replace `send` with `call.value().gas(gasleft()).call()` and check the return value before proceeding with state changes.\n\nReferences: SWC-110, CWE-400",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/denial_of_service/list_dos.sol",
+    "categories": [
+     "denial_of_service"
+    ],
+    "lines": [
+     46,
+     48
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0060",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/unchecked_low_level_calls/0x663e4229142a27f00bafb5d087e1e730648314c3.sol",
+  "line": 482,
+  "end_line": 482,
+  "rule_id": "cevanex-unsafe-downcast",
+  "cwe": "CWE-681",
+  "scanner_message": "Unsafe downcast from uint256 to a smaller type (uint128, uint96, uint64, etc.) without overflow check. If the value exceeds the target type's max, it silently truncates, causing critical accounting errors. Use OpenZeppelin SafeCast or explicit bounds checking.\n",
+  "snippet": "            siringWithId: 0,\n            cooldownIndex: cooldownIndex,\n            generation: uint16(_generation)\n        });\n        uint256 newKittenId = pandas.push(_panda) - 1;",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `_createPanda` function in `0x663e4229142a27f00bafb5d087e1e730648314c3.sol` performs an unsafe downcast from `uint256` to `uint16` for the `_generation` parameter at line 1237 (`generation: uint16(_generation)`). If `_generation` exceeds `uint16` max (65535), it silently truncates, corrupting the panda's generation field. This breaks breeding restrictions (e.g., generation-based pregnancy checks and siring rules) and can cause accounting errors in `gen0CreatedCount` and `wizzPandaCount` increments, potentially allowing unlimited generation-0 creation beyond `GEN0_TOTAL_COUNT` or corrupting wizz panda quotas. The invariant \"panda generation is correctly stored and used for breeding rules\" is violated.\n\n## Attack Scenario\n1. An attacker with COO privileges calls `createPanda` (entry point at line 1371) or `createWizzPanda` (entry point at line 1400), both of which call `_createPanda`.\n2. The attacker supplies a `_generation` value greater than 65535 (e.g., 65536).\n3. In `_createPanda`, line 1237 truncates `_generation` to `uint16`, storing 0 instead of 65536.\n4. The truncated generation 0 bypasses checks like `require(gen0CreatedCount<GEN0_TOTAL_COUNT)` at line 1268, because the stored generation is 0 and the counter logic is misaligned.\n5. The attacker can mint unlimited \"gen0\" pandas, draining `GEN0_TOTAL_COUNT` quota and corrupting `wizzPandaCount` and `gen0CreatedCount` state, breaking game economics and quota enforcement.\n\n## Recommendation\nPrimary fix: Replace `generation: uint16(_generation)` with explicit bounds checking using OpenZeppelin SafeCast or a manual `require(_generation <= type(uint16).max)` before the cast. For example:\n```solidity\nrequire(_generation <= type(uint16).max, \"Generation overflow\");\ngeneration: uint16(_generation)\n```\nDefense in depth: Add a unit test that verifies `_createPanda` reverts for `_generation > 65535` and assert that `pandas[id].generation` matches the input for all valid values. Also audit all callers of `_createPanda` to ensure they sanitize `_generation` before invocation.\n\nReferences: SWC-101, CWE-190, ERC-721 (for generation semantics)",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/unchecked_low_level_calls/0x663e4229142a27f00bafb5d087e1e730648314c3.sol",
+    "categories": [
+     "unchecked_low_level_calls"
+    ],
+    "lines": [
+     1152,
+     1496,
+     2467
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0036",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/unchecked_low_level_calls/0x2972d548497286d18e92b5fa1f8f9139e5653fd2.sol",
+  "line": 12,
+  "end_line": 12,
+  "rule_id": "cevanex-unbounded-loop",
+  "cwe": "CWE-400",
+  "scanner_message": "Loop iterates over a storage array with no upper bound. If the array grows large, the function will exceed the block gas limit and become uncallable, potentially locking funds permanently.\n",
+  "snippet": "        require(_tos.length > 0);\n        bytes4 id=bytes4(keccak256(\"transferFrom(address,address,uint256)\"));\n        for(uint i=0;i<_tos.length;i++){\n             // <yes> <report> UNCHECKED_LL_CALLS\n            caddress.call(id,from,_tos[i],v[i]);",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `transfer` function in `dataset/unchecked_low_level_calls/0x2972d548497286d18e92b5fa1f8f9139e5653fd2.sol` iterates over a storage array `_tos` with no upper bound, executing unchecked low-level calls (`caddress.call`) for each element. If `_tos.length` grows large enough, the function will exceed the block gas limit and become uncallable, permanently locking funds and tokens in the contract. This is a denial-of-service vector that directly impacts contract availability and can trap user assets.\n\n## Attack Scenario\n1. An attacker calls `transfer` with a very large `_tos` array (e.g., thousands of addresses).\n2. The loop at line 3 (`for(uint i=0;i<_tos.length;i++)`) executes many `caddress.call` operations.\n3. Each call consumes gas; after ~5–10 million gas (depending on network conditions), the transaction reverts due to out-of-gas.\n4. Once the function becomes uncallable, the contract cannot process further transfers, effectively DoSing the contract and locking all associated tokens and funds.\n\n## Recommendation\nPrimary fix: Add a hard cap on `_tos.length` (e.g., `require(_tos.length <= 50)`) and batch processing if larger sets are required. Alternatively, use an escrow pattern where recipients pull funds individually.\n\nReferences: SWC-103, SWC-113, CWE-400",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/unchecked_low_level_calls/0x2972d548497286d18e92b5fa1f8f9139e5653fd2.sol",
+    "categories": [
+     "unchecked_low_level_calls"
+    ],
+    "lines": [
+     14
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0508",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/unchecked_low_level_calls/0xe09b1ab8111c2729a76f16de96bc86a7af837928.sol",
+  "line": 313,
+  "end_line": 313,
+  "rule_id": "cevanex-reentrancy-cross-function",
+  "cwe": "CWE-841",
+  "scanner_message": "Cross-function reentrancy: a state variable read in one function may be stale if another function modifies it after an external call. Audit all functions that share mutable state with external-call-bearing functions.\n",
+  "snippet": "        address requester = bet.player;\n        uint256 ethToTransfer = bet.amount;        \n        requester.transfer(ethToTransfer);\n\n        uint tossWinAmount = bet.amount * WIN_X / 1000;",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `sendRefund` function in `0xe09b1ab8111c2729a76f16de96bc86a7af837928.sol` reads `bet.amount` after an external `transfer` call, but modifies `lockedInBets` using that stale value. An attacker can exploit this cross-function reentrancy to cause incorrect accounting of `lockedInBets`, potentially draining the contract's collateral or causing incorrect bet settlement logic. Specifically, `lockedInBets -= tossWinAmount` uses `bet.amount` after the refund transfer, but if `bet.amount` is modified externally (e.g., via `wager` re-entering `play` and updating the same `bet` struct), the subtraction will be incorrect, breaking the invariant `lockedInBets >= sum of pending win amounts`.\n\n## Attack Scenario\n1. Attacker creates a bet via `wager` with `ticketID = X`, setting `bet.amount = A` and `lockedInBets += A * WIN_X / 1000`.\n2. Attacker calls `refund(X)` before expiration, triggering `sendRefund`.\n3. Inside `sendRefund`, `requester.transfer(ethToTransfer)` executes — if `requester` is a malicious contract, its fallback can re-enter `play(X)` (since `bet.amount != 0` and `bet.player != address(0)` still hold at this point).\n4. In the re-entered `play(X)`, the contract computes `tossWinAmount = bet.amount * WIN_X / 1000` (still `A * WIN_X / 1000`) and calls `payout`, which may call back into `sendRefund` or `payout` again, but crucially, `bet.amount` is set to `0` only at the end of `play`.\n5. When the original `sendRefund` resumes, it executes `lockedInBets -= tossWinAmount`, but `tossWinAmount` was computed using the original `bet.amount` value, while `bet.amount` may have been zeroed or modified during re-entry, causing `lockedInBets` to be understated or overstated.\n6. The attacker can repeat this to manipulate `lockedInBets`, potentially bypassing the `getCollateralBalance() >= 2 * amount` check in `wager` or causing incorrect settlement in `play`.\n\n## Recommendation\nPrimary fix: Move the `lockedInBets` update before the external `transfer` call in `sendRefund`, and ensure `bet.amount` is captured before any external call. Specifically:\n- Read `tossWinAmount = bet.amount * WIN_X / 1000` and `lockedInBets -= tossWinAmount` *before* `requester.transfer(ethToTransfer)`.\n- Zero `bet.amount` immediately after the external call or use the Withdraw pattern (update state before external call).\n\nDefense in depth: Apply the Checks-Effects-Interactions pattern consistently across all functions that modify shared state (`wager`, `play`, `sendRefund`, `payout`, `loseWager`). Add a reentrancy guard modifier (e.g., OpenZeppelin's `ReentrancyGuard`) to prevent re-entry during critical sections.\n\nReferences: SWC-107, CWE-841",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/unchecked_low_level_calls/0xe09b1ab8111c2729a76f16de96bc86a7af837928.sol",
+    "categories": [
+     "unchecked_low_level_calls"
+    ],
+    "lines": [
+     150
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0334",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/unchecked_low_level_calls/0x3a0e9acd953ffc0dd18d63603488846a6b8b2b01.sol",
+  "line": 16,
+  "end_line": 16,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "    function changeOwner(address addr)\n    public\n    onlyOwner\n    {\n        newOwner = addr;",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe contract uses a single-owner access control model where the `changeOwner` function (line 1–5 in `dataset/unchecked_low_level_calls/0x3a0e9acd953ffc0dd18d63603488846a6b8b2b01.sol`) allows the current owner to unilaterally transfer control to any address. Combined with privileged functions like `WithdrawToHolder` (line 6–14), which performs unchecked low-level calls before updating state, a compromised or malicious owner can drain all held funds by transferring ownership to an attacker-controlled address and then invoking the withdrawal function. This violates the integrity and availability invariants of user funds.\n\n## Attack Scenario\n1. Attacker compromises the owner’s private key (e.g., via phishing, key reuse, or social engineering).\n2. Attacker calls `changeOwner(attackerAddress)` — allowed because `onlyOwner` is satisfied — setting `newOwner = attackerAddress`.\n3. Attacker calls `WithdrawToHolder(attackerAddress, Holders[msg.sender])` for any user or for the contract balance — the function checks `onlyOwner`, which now passes, and executes `_addr.call.value(_wei)()` (line 11), an unchecked low-level call vulnerable to reentrancy or DoS via a malicious fallback.\n4. After the external call, `Holders[_addr] -= _wei` executes (line 12), finalizing the theft.\n5. Post-condition: attacker drains all or part of the contract’s ETH balance and user balances.\n\n## Recommendation\n- **Primary fix**: Replace single-owner control with a time-locked upgrade path or a multisig/governance mechanism. At minimum, add a delay (e.g., 24–72h) between `changeOwner` and its activation using a `pendingOwner` + `acceptOwnership()` pattern (as in OpenZeppelin’s `Ownable`).\n- **Defense in depth**: Use `transfer()` instead of `.call.value()` for ETH transfers, or wrap the external call in a reentrancy guard (e.g., `ReentrancyGuard` from OpenZeppelin) and update state *before* the call.\n- **References**: SWC-106, SWC-113, CWE-284, CWE-863",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/unchecked_low_level_calls/0x3a0e9acd953ffc0dd18d63603488846a6b8b2b01.sol",
+    "categories": [
+     "unchecked_low_level_calls"
+    ],
+    "lines": [
+     44,
+     97
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0427",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/unchecked_low_level_calls/0x7d09edb07d23acb532a82be3da5c17d9d85806b4.sol",
+  "line": 106,
+  "end_line": 106,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "     */\n    function AdjustDifficulty(uint256 amount) \n    onlyOwner()\n    public\n    {",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `AdjustDifficulty` function in `dataset/unchecked_low_level_calls/0x7d09edb07d23acb532a82be3da5c17d9d85806b4.sol` can be called unilaterally by the single owner (via `onlyOwner()` modifier), allowing arbitrary manipulation of the `difficulty` state variable. This directly compromises the integrity of the game's randomness mechanism — since `difficulty` likely influences the probability of winning or payout calculations — enabling the owner to tilt odds in their favor or break game fairness entirely.\n\n## Attack Scenario\n1. The owner calls `AdjustDifficulty(0)` (line 1–6 in the flagged function), setting `difficulty = 0`.\n2. If `difficulty` is used in subsequent `wager` or `play` logic to determine win conditions (e.g., as a divisor, threshold, or randomness modifier), this manipulation could guarantee wins for the owner or prevent user payouts.\n3. The owner may also call `AdjustDifficulty` after observing favorable on-chain conditions (e.g., after a user has placed a large bet) to retroactively ensure a win — exploiting the single-admin control over critical game parameters.\n\n## Recommendation\n- **Primary fix**: Replace single-owner control with a time-locked upgrade path or a multi-sig/governance-based proposal for privileged operations like `AdjustDifficulty`. Use OpenZeppelin’s `TimelockController` or a 2-of-3 multisig.\n- **Defense in depth**: Add a minimum delay (e.g., 24–72 hours) for critical parameter changes, and emit an `DifficultyAdjusted` event with `prevDifficulty` and `newDifficulty` for off-chain monitoring.\n- **References**: SWC-123, CWE-284, OWASP A05:2021",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/unchecked_low_level_calls/0x7d09edb07d23acb532a82be3da5c17d9d85806b4.sol",
+    "categories": [
+     "unchecked_low_level_calls"
+    ],
+    "lines": [
+     198,
+     210
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0133",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/access_control/multiowned_vulnerable.sol",
+  "line": 54,
+  "end_line": 54,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "}\n\ncontract TestContract is MultiOwnable {\n\n  function withdrawAll() onlyOwner {",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `multiowned_vulnerable.sol` contract implements a flawed ownership model where the `deleteOwner` function allows the `root` address (or the owner themselves) to unilaterally remove any owner from the `owners` mapping without requiring multi-signature consensus. This undermines the intended multi-signature security model and effectively reduces control to a single privileged address (`root`), enabling unauthorized privilege escalation or denial of service by removing legitimate co-owners. The invariant \"all owners must be added/removed only via multi-signature confirmation\" is violated.\n\n## Attack Scenario\n1. Attacker gains control of the `root` address (e.g., via key compromise or social engineering).\n2. Attacker calls `deleteOwner(address _owner)` with `_owner` set to a legitimate co-owner (line 1 of `deleteOwner`).\n3. The check `owners[_owner] == msg.sender || (owners[_owner] != 0 && msg.sender == root)` passes because `msg.sender == root` (line 2).\n4. The line `owners[_owner] = 0;` (line 3) removes the target owner from the mapping.\n5. Post-condition: the removed owner can no longer confirm operations or perform owner-only actions, weakening or breaking the multi-signature access control.\n\n## Recommendation\n**Primary fix**: Replace `deleteOwner` with a function that requires `onlymanyowners`, just like `removeOwner` in `parity_wallet_bug_2.sol`. Specifically, change the modifier from `onlyOwner` to `onlymanyowners(sha3(msg.data))` and ensure the implementation mirrors the safe reorganization logic used in `removeOwner` (e.g., `reorganizeOwners()`).  \n**Defense in depth**: Audit all state setters in the codebase for missing `onlymanyowners` guards; the `newOwner` function also incorrectly assigns `owners[_owner] = msg.sender` instead of validating ownership via multi-sig.  \n**References**: SWC-123, CWE-284",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/access_control/multiowned_vulnerable.sol",
+    "categories": [
+     "access_control"
+    ],
+    "lines": [
+     38
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0383",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/unchecked_low_level_calls/0x663e4229142a27f00bafb5d087e1e730648314c3.sol",
+  "line": 23,
+  "end_line": 23,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "}\n/**\n * @title Ownable\n * @dev The Ownable contract has an owner address, and provides basic authorization control\n * functions, this simplifies the implementation of \"user permissions\".",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nThe `Ownable` contract in `dataset/unchecked_low_level_calls/0x663e4229142a27f00bafb5d087e1e730648314c3.sol` uses a single `owner` address with no access control on the constructor, allowing any caller to claim ownership by invoking the `Ownable()` function. This grants the attacker unilateral control over critical operations including pausing transfers, changing CEO/CFO/COO addresses, and transferring ownership — effectively enabling total contract takeover and fund drain.\n\n## Attack Scenario\n1. Attacker calls the `Ownable()` constructor (line 27 in Ownable contract) — no `onlyOwner` guard exists on constructor.\n2. Constructor sets `owner = msg.sender`, granting attacker full control.\n3. Attacker calls `transferOwnership(address newOwner)` (line 47) to lock out the legitimate owner.\n4. Attacker calls `pause(bool)` (not shown in snippet but inherited from Ownable usage) to halt all transfers.\n5. Attacker calls `setCEO(address)`, `setCFO(address)`, or `setCOO(address)` to install controlled addresses.\n6. Attacker triggers `withdrawBalance()`, `withdrawERC20Balance()`, or manipulates auction logic to drain funds.\n\nThe invariant violated is \"only the legitimate deployer should control the contract\" — this is completely bypassed because the constructor is public and unprotected.\n\n## Recommendation\nPrimary fix: Rename the constructor to `constructor()` (Solidity 0.4.22+) or guard it with `onlyOwner` if using a legacy pattern, and ensure the constructor is `public` only when called once during deployment. In this case, since the constructor is meant to be called once at deployment, it should be `public` but the `owner` should be set to `msg.sender` only if `owner == address(0)` (i.e., uninitialized), or better yet, use `onlyOwner` if a migration path exists.\n\nDefense in depth: Add a `require(owner == address(0))` check inside the constructor to prevent re-initialization, and consider using OpenZeppelin’s `Ownable` with a proper `constructor` modifier.\n\nReferences: SWC-049, CWE-284",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/unchecked_low_level_calls/0x663e4229142a27f00bafb5d087e1e730648314c3.sol",
+    "categories": [
+     "unchecked_low_level_calls"
+    ],
+    "lines": [
+     1152,
+     1496,
+     2467
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0405",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/unchecked_low_level_calls/0x663e4229142a27f00bafb5d087e1e730648314c3.sol",
+  "line": 1442,
+  "end_line": 1442,
+  "rule_id": "cevanex-single-admin-key",
+  "cwe": "CWE-284",
+  "scanner_message": "Contract has a single owner/admin address that can unilaterally execute privileged operations (pause, upgrade, drain). A compromised key means total loss. Consider timelock, multisig, or governance voting.\n",
+  "snippet": "   * @dev called by the owner to pause, triggers stopped state\n   */\n  function pause() onlyOwner whenNotPaused returns (bool) {\n    paused = true;\n    Pause();",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe contract uses a single `owner` address (via `onlyOwner` modifier on `pause()`) to control critical administrative functions including pausing the entire contract. A compromised owner key allows an attacker to call `pause()` at any time, blocking all user interactions (breeding, auctions, transfers, births) and effectively freezing the contract’s state indefinitely — a complete availability and funds-at-risk breach. The `pause()` function at line 123 in `dataset/unchecked_low_level_calls/0x663e4229142a27f00bafb5d087e1e730648314c3.sol` is guarded only by `onlyOwner`, with no timelock, multisig, or governance override.\n\n## Attack Scenario  \n1. Attacker compromises the private key of the `owner` address (e.g., via phishing, key exposure, or social engineering).  \n2. Attacker calls `pause()` (line 123) with `msg.sender == owner`, satisfying `onlyOwner` and `whenNotPaused`.  \n3. The `paused` state variable is set to `true` (line 124), and the `Pause()` event is emitted.  \n4. All functions guarded by `whenNotPaused` (e.g., `breedWithAuto`, `giveBirth`, `createSaleAuction`, `transfer`, `approve`) become permanently blocked.  \n5. Users cannot withdraw assets, breed pandas, or resolve pending auctions — total service disruption and funds trapped.  \n\n## Recommendation  \nPrimary fix — Replace single-key ownership with a time-delayed or multi-party admin mechanism:  \n- Introduce a `pendingOwner` + `acceptOwnership()` pattern with a configurable `ownershipTransferDelay` (e.g., 48 hours) for `setOwner()` (SWC-062).  \n- Alternatively, deploy a multisig wallet (e.g., Gnosis Safe) as the owner, or migrate to an on-chain governance vote for privileged actions (EIP-1202).  \n\nDefense in depth — Add a `pauseGuardian` role (e.g., a 2-of-3 multisig) that can only unpause after a delay, preventing indefinite lockouts even if the owner is compromised (CWE-284).  \n\nReferences — SWC-062, CWE-284, SCSVS-4.3.2",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/unchecked_low_level_calls/0x663e4229142a27f00bafb5d087e1e730648314c3.sol",
+    "categories": [
+     "unchecked_low_level_calls"
+    ],
+    "lines": [
+     1152,
+     1496,
+     2467
+    ]
+   }
+  ]
+ },
+ {
+  "id": "smartbugs-0030",
+  "benchmark": "smartbugs",
+  "source_root": "<BENCHMARK_CHECKOUTS>/smartbugs",
+  "file": "dataset/unchecked_low_level_calls/0x663e4229142a27f00bafb5d087e1e730648314c3.sol",
+  "line": 215,
+  "end_line": 215,
+  "rule_id": "cevanex-privileged-no-access-control",
+  "cwe": "CWE-284",
+  "scanner_message": "Privileged function (withdraw, mint, burn, pause, upgrade, set*, change*) is public/external without an access-control modifier. Anyone can call it.\n",
+  "snippet": "    /// @notice This is public rather than external so it can be called by\n    ///  derived contracts.\n    function unpause() public onlyCEO whenPaused {\n        // can't unpause if contract was upgraded\n        paused = false;",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `unpause()` function in `PandaAccessControl.sol` is declared `public` (instead of `external`) and relies solely on the `onlyCEO` modifier and `whenPaused` condition. While the `onlyCEO` modifier correctly restricts callers to the CEO address, the use of `public` allows the function to be invoked via delegatecall from a malicious contract that inherits from `PandaAccessControl`. If a derived contract is deployed with a vulnerable `unpause()` override (e.g., missing `whenPaused`), or if storage layout is misaligned, an attacker could trigger `unpause()` via a proxy or upgrade mechanism — effectively bypassing the intended pause state and restoring full contract functionality after a security incident. This undermines the pause mechanism’s purpose as a last-resort safety valve.\n\n## Attack Scenario  \n1. An attacker deploys a malicious contract that inherits from `PandaAccessControl` and overrides `unpause()` without the `whenPaused` modifier (or with a weakened check).  \n2. The attacker calls `unpause()` on the derived contract, which performs a delegatecall into the main `PandaAccessControl` storage (if deployed as a proxy or via upgrade pattern).  \n3. Because `unpause()` is `public`, the compiler allows internal calls from derived contracts, and the storage write `paused = false` executes unconditionally (if `whenPaused` is omitted or bypassed).  \n4. Post-condition: `paused` is set to `false`, enabling all `whenNotPaused`-protected functions (e.g., transfers, breeding, auctions) to be executed — even if the system was intentionally paused due to an exploit.  \n\nNote: The current `unpause()` implementation *does* include `whenPaused`, but the `public` visibility remains dangerous because derived contracts may override it without re-declaring modifiers, or future upgrades may relax the modifier chain unintentionally. The Semgrep rule correctly flags this as a privileged function without strict access control.\n\n## Recommendation  \n**Primary fix**: Change `unpause()` from `public` to `external`. The comment “This is public rather than external so it can be called by derived contracts” is misleading — derived contracts should call `super.unpause()` only if they explicitly override it with matching modifiers; direct `public` exposure defeats the purpose of modifiers in inheritance hierarchies.  \n**Defense in depth**: Add a `reinitializer(1)`-style guard (if using OpenZeppelin’s `Initializable`) or a `contractUpgraded` flag to prevent unpause after upgrade, as hinted in the comment.  \n**References**: SWC-049, CWE-284",
+  "documented_entries_for_this_file": [
+   {
+    "file": "dataset/unchecked_low_level_calls/0x663e4229142a27f00bafb5d087e1e730648314c3.sol",
+    "categories": [
+     "unchecked_low_level_calls"
+    ],
+    "lines": [
+     1152,
+     1496,
+     2467
+    ]
+   }
+  ]
+ }
+]

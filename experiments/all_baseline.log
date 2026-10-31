@@ -1,0 +1,45 @@
+─────────────────────────────────────────────────────────────
+  starting run_1  (log: <MSFV_ROOT>/experiments/baseline_noverify_nopoc/run_1/stdout.log)
+─────────────────────────────────────────────────────────────
+[92m20:34:13 - LiteLLM:WARNING[0m: common_utils.py:979 - litellm: could not pre-load bedrock-runtime response stream shape — Bedrock event-stream decoding will be unavailable. Error: No module named 'botocore'
+[92m20:34:13 - LiteLLM:WARNING[0m: common_utils.py:24 - litellm: could not pre-load sagemaker-runtime response stream shape — SageMaker event-stream decoding will be unavailable. Error: No module named 'botocore'
+=== Paper baseline run_1 @ 2026-06-05 20:34:13 ===
+  target:  dvd
+  state:   paper_run_1_1780662853
+  output:  <MSFV_ROOT>/experiments/baseline_noverify_nopoc/run_1
+  backends: ALL = vllm:nemotron-120b
+  ablation: AISEC_DISABLE_POC_VALIDATOR=1 AISEC_DISABLE_VERIFY=1
+
+
+
+!!! Pipeline raised: AdapterParseError: The LM returned an empty or null response.
+
+Adapter JSONAdapter failed to parse the LM response. 
+
+LM Response:  
+
+Expected to find output fields in the LM response: [vulnerability_analysis, poc_solidity, poc_strategy, expected_outcome] 
+
+
+
+=== run_1 done in 100m 6s ===
+  findings: 0
+  by layer: {}
+  by severity: {}
+  ERROR:    AdapterParseError: The LM returned an empty or null response.
+
+Adapter JSONAdapter failed to parse the LM response. 
+
+LM Response:  
+
+Expected to find output fields in the LM response: [vulnerability_analysis, poc_solidity, poc_strategy, expected_outcome] 
+
+
+
+─────────────────────────────────────────────────────────────
+  starting run_2  (log: <MSFV_ROOT>/experiments/baseline_noverify_nopoc/run_2/stdout.log)
+─────────────────────────────────────────────────────────────
+[92m22:14:22 - LiteLLM:WARNING[0m: common_utils.py:979 - litellm: could not pre-load bedrock-runtime response stream shape — Bedrock event-stream decoding will be unavailable. Error: No module named 'botocore'
+[92m22:14:22 - LiteLLM:WARNING[0m: common_utils.py:24 - litellm: could not pre-load sagemaker-runtime response stream shape — SageMaker event-stream decoding will be unavailable. Error: No module named 'botocore'
+run_all_baseline.sh: line 32: 42408 Killed: 9               python "$RUNNER" "$i" 2>&1
+     42409 Done                    | tee "$LOG"

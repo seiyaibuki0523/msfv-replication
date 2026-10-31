@@ -1,0 +1,162 @@
+diff --git a/experiments/run_ablation_fast.py b/experiments/run_ablation_fast.py
+index ab8815b..99b329b 100644
+--- a/experiments/run_ablation_fast.py
++++ b/experiments/run_ablation_fast.py
+@@ -81,6 +81,9 @@ VERIFY_CONFIGS = {
+     "noconcern_full": "identity,source,poc",  # Tier 5 (same signals as noconcern)
+     "full_rep2":  "identity,source,concern,poc",  # Tier 4 replicate
+     "full_rep3":  "identity,source,concern,poc",  # Tier 4 replicate
++    # Round-2 A batch: same info as full, single unstructured prompt (naive).
++    # Dispatched via AISEC_VERIFY_MODE=naive in the verify loop below.
++    "naive_verify": "identity,source,concern,poc",
+ }
+ # Optional restriction of which verify configs to run (AISEC_ABL_VERIFY_CONFIGS,
+ # comma list). Used to run smartbugs at full-only (its ~1000 findings make the
+@@ -364,6 +367,11 @@ def main(bm: str) -> int:
+ 
+         os.environ.pop("AISEC_DISABLE_VERIFY", None)
+         os.environ["AISEC_VERIFY_SIGNALS"] = signals
++        # naive_verify (round-2): single unstructured prompt, all signals present.
++        if cfg == "naive_verify":
++            os.environ["AISEC_VERIFY_MODE"] = "naive"
++        else:
++            os.environ.pop("AISEC_VERIFY_MODE", None)
+         st = ScanState.load(vid)
+         vp = CheckpointedPipeline(st, parallel_workers=workers,
+                                   custom_queries=custom_queries, file_scope=file_scope)
+diff --git a/frozen-code/src/main/core/ai_engine/nvidia_adapter.py b/frozen-code/src/main/core/ai_engine/nvidia_adapter.py
+index 7c16426..6e83de1 100644
+--- a/frozen-code/src/main/core/ai_engine/nvidia_adapter.py
++++ b/frozen-code/src/main/core/ai_engine/nvidia_adapter.py
+@@ -114,11 +114,31 @@ class DSPyNvidiaAdapter(dspy.LM):
+         if not api_messages:
+             api_messages = [{"role": "user", "content": prompt or ""}]
+ 
++        # Optionally disable Nemotron's reasoning mode. As a REASONING model,
++        # nemotron's <think> at temperature 0.2 explores different paths per
++        # call → non-reproducible L3 detection filtering (CV 30-64% vs
++        # qwen/gemma ~0%). NVIDIA Nemotron honors a "detailed thinking off"
++        # system directive, giving deterministic non-reasoning behaviour.
++        # Gated on AISEC_NEMOTRON_THINKING=off; only touches nemotron models.
++        if (os.getenv("AISEC_NEMOTRON_THINKING", "").strip().lower() == "off"
++                and "nemotron" in (self.model or "").lower()):
++            if api_messages and api_messages[0].get("role") == "system":
++                api_messages[0]["content"] = (
++                    "detailed thinking off\n" + api_messages[0]["content"])
++            else:
++                api_messages = [{"role": "system",
++                                 "content": "detailed thinking off"}] + api_messages
++
+         combined = {**self.kwargs, **kwargs}
++        # AISEC_LLM_TEMPERATURE force-overrides temperature (incl. anything DSPy
++        # passes) — used to test greedy (temp=0) decoding for reproducibility.
++        _temp_env = os.getenv("AISEC_LLM_TEMPERATURE", "").strip()
++        _temp = float(_temp_env) if _temp_env else combined.pop("temperature", 0.2)
++        combined.pop("temperature", None)
+         request_params: dict = {
+             "model": self.model,
+             "messages": api_messages,
+-            "temperature": combined.pop("temperature", 0.2),
++            "temperature": _temp,
+             "top_p": combined.pop("top_p", 0.7),
+             # Oversize budget — reasoning models can spend 4-8K tokens in
+             # <think> before writing the structured answer. If this truncates
+@@ -149,6 +169,19 @@ class DSPyNvidiaAdapter(dspy.LM):
+             if k in ("stream", "response_format", "seed", "tools", "tool_choice"):
+                 request_params[k] = v
+ 
++        # Pin a single OpenRouter provider for reproducibility. OpenRouter
++        # load-balances a model across providers with DIFFERENT quantization
++        # and output caps (e.g. nemotron-3-super → DeepInfra bf16/16384 vs
++        # DigitalOcean unknown/uncapped); random routing per request makes
++        # detection L3 filtering non-reproducible and silently re-truncates
++        # when a call lands on the lower-cap provider. AISEC_OPENROUTER_PROVIDER
++        # forces one backend so every call is identical.
++        _prov = os.getenv("AISEC_OPENROUTER_PROVIDER", "").strip()
++        if _prov and "openrouter" in (self.base_url or ""):
++            request_params["extra_body"] = {
++                "provider": {"order": [_prov], "allow_fallbacks": False}
++            }
++
+         response = self.client.chat.completions.create(**request_params)
+ 
+         raw = response.choices[0].message.content or ""
+diff --git a/frozen-code/src/main/core/analysis/pipeline.py b/frozen-code/src/main/core/analysis/pipeline.py
+index fb6d42f..e6537ba 100644
+--- a/frozen-code/src/main/core/analysis/pipeline.py
++++ b/frozen-code/src/main/core/analysis/pipeline.py
+@@ -1546,7 +1546,15 @@ def _verify_function_worker(
+         '"severity": "critical"|"high"|"medium"|"low"|"info", '
+         '"reason": "one sentence"}'
+     )
+-    verify_prompt = "".join(parts) + "".join(instruction)
++    # naive_verify (round-2 A batch, RQ4 control): SAME information as full
++    # (identity + source + concern + raw PoC) but a single unstructured prompt
++    # — no signal-role labelling, and §III-D's PoC-inclusion policy is NOT
++    # applied (raw PoC outcome, no interpretation guidance). Gated on
++    # AISEC_VERIFY_MODE=naive so the structured path above is untouched.
++    if (os.getenv("AISEC_VERIFY_MODE", "") or "").strip().lower() == "naive":
++        verify_prompt = _naive_verify_prompt(self, file_rel, func_name, concern, snippet)
++    else:
++        verify_prompt = "".join(parts) + "".join(instruction)
+ 
+     cache = get_cache()
+     if cache is not None:
+@@ -1707,6 +1715,57 @@ def _repair_failed_pocs(self, s, validator, root: str) -> None:
+ CheckpointedPipeline._repair_failed_pocs = _repair_failed_pocs
+ 
+ 
++def _naive_match(self, file_rel: str, func_name: str):
++    """The Layer-4 finding matching (file, function) — same fuzzy match as
++    _render_poc_signal, reused by naive_verify for line + raw PoC outcome."""
++    for r in self.state.opus_results:
++        if r.get("layer") != 4:
++            continue
++        f = r.get("finding", {})
++        if f.get("file") != file_rel:
++            continue
++        if (func_name in str(f.get("message", ""))
++                or func_name in str(r.get("analysis", ""))):
++            return r
++    return None
++
++
++def _naive_verify_prompt(self, file_rel: str, func_name: str,
++                         concern: str, snippet: str) -> str:
++    """Round-2 A batch prompt (RUN_INSTRUCTIONS_ROUND2 §A — copied verbatim).
++
++    Raw PoC outcome with NO interpretation guidance (§III-D deliberately not
++    applied — that omission is part of what this control measures)."""
++    m = _naive_match(self, file_rel, func_name)
++    line = "?"
++    poc_raw = "No proof-of-concept was generated."
++    if m is not None:
++        line = (m.get("finding", {}) or {}).get("line", "?")
++        poc = m.get("poc") or {}
++        v = poc.get("validation") or {}
++        if poc.get("code") or v:
++            if v.get("poc_compile") is True:
++                if v.get("poc_triggers_bug") is True:
++                    poc_raw = "PoC compiled and triggered the reported behavior."
++                else:
++                    poc_raw = "PoC compiled but did not trigger the reported behavior."
++            else:
++                err = (v.get("error") or "unknown error")
++                poc_raw = f"PoC failed to compile. Error: {err}"
++    return (
++        "You are reviewing a potential security vulnerability found in a codebase.\n\n"
++        f"File: {file_rel}\n"
++        f"Line: {line}\n"
++        f"Function: {func_name}\n\n"
++        f"Reported issue:\n{concern}\n\n"
++        f"Source code:\n{snippet}\n\n"
++        f"Proof-of-concept execution result:\n{poc_raw}\n\n"
++        "Is this a genuine, exploitable vulnerability?\n\n"
++        "Respond with JSON only, no other text:\n"
++        '{"verdict": "confirmed" | "downgraded" | "false_positive", "reason": "<one sentence>"}'
++    )
++
++
+ def _render_poc_signal(self, file_rel: str, func_name: str) -> str:
+     """Render the PoC validation result for the matching Layer 4 finding.
+ 

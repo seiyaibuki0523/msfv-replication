@@ -1,0 +1,92 @@
+rules:
+  - id: python-raw-sql-fstring
+    message: >-
+      Raw SQL built with an f-string / string concat / %-format. User input
+      reaching this is SQL injection. Use parameterised queries (params=[...]).
+    severity: ERROR
+    languages: [python]
+    metadata: {cwe: "CWE-89", category: security}
+    pattern-either:
+      - pattern: $CUR.execute(f"...", ...)
+      - pattern: $CUR.execute("..." % ..., ...)
+      - pattern: $CUR.execute("..." + $X, ...)
+      - pattern: $M.raw(f"...", ...)
+      - pattern: $M.raw("..." + $X, ...)
+
+  - id: python-subprocess-shell-true
+    message: >-
+      subprocess/os.system invoking a shell with a built command string.
+      User-controlled components give OS command injection. Pass an argv list
+      and shell=False.
+    severity: ERROR
+    languages: [python]
+    metadata: {cwe: "CWE-78", category: security}
+    pattern-either:
+      - pattern: subprocess.$F(..., shell=True, ...)
+      - pattern: os.system(...)
+      - pattern: os.popen(...)
+
+  - id: python-insecure-deserialization
+    message: >-
+      Insecure deserialization (pickle / yaml.load with Loader / marshal).
+      Deserializing untrusted data executes arbitrary code. Use json or
+      yaml.safe_load.
+    severity: ERROR
+    languages: [python]
+    metadata: {cwe: "CWE-502", category: security}
+    pattern-either:
+      - pattern: pickle.loads(...)
+      - pattern: pickle.load(...)
+      - pattern: yaml.load($X)
+      - pattern: yaml.load($X, $L)
+      - pattern: marshal.loads(...)
+
+  - id: python-eval-exec
+    message: >-
+      eval()/exec() on a value — arbitrary code execution if any part is
+      user-controlled. Use ast.literal_eval or an explicit dispatch table.
+    severity: ERROR
+    languages: [python]
+    metadata: {cwe: "CWE-95", category: security}
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: exec(...)
+
+  - id: python-ssrf-requests
+    message: >-
+      Outbound request to a URL assembled from input (SSRF). Validate against
+      an allow-list; block internal/metadata addresses.
+    severity: WARNING
+    languages: [python]
+    metadata: {cwe: "CWE-918", category: security}
+    pattern-either:
+      - pattern: requests.$M($URL, ...)
+      - pattern: urllib.request.urlopen($URL, ...)
+    metavariable-pattern:
+      metavariable: $URL
+      patterns:
+        - pattern-either:
+            - pattern: $A + $B
+            - pattern: f"..."
+
+  - id: python-xxe-parser
+    message: >-
+      XML parser with external entity / DTD resolution enabled — XXE. Disable
+      external entities (defusedxml, or resolve_entities=False).
+    severity: ERROR
+    languages: [python]
+    metadata: {cwe: "CWE-611", category: security}
+    pattern-either:
+      - pattern: $P.setFeature($F, True)
+      - pattern: lxml.etree.XMLParser(..., resolve_entities=True, ...)
+
+  - id: python-flask-render-template-string
+    message: >-
+      render_template_string on input — server-side template injection (SSTI)
+      leading to RCE. Render a fixed template with context variables instead.
+    severity: ERROR
+    languages: [python]
+    metadata: {cwe: "CWE-94", category: security}
+    pattern-either:
+      - pattern: render_template_string($X + ...)
+      - pattern: render_template_string(f"...")

@@ -1,0 +1,45 @@
+rules:
+  - id: rust-command-injection
+    message: >-
+      Command running a shell ("sh -c" / "bash -c") with a built string. User
+      input gives OS command injection. Pass fixed args, no shell.
+    severity: ERROR
+    languages: [rust]
+    metadata: {cwe: "CWE-78", category: security}
+    pattern-either:
+      - pattern: Command::new("sh").arg("-c").arg($X)
+      - pattern: Command::new("bash").arg("-c").arg($X)
+      - pattern: Command::new($X)
+
+  - id: rust-sql-format
+    message: >-
+      SQL built with format!/string concat then executed. SQL injection — use
+      bound parameters (sqlx query!/bind).
+    severity: ERROR
+    languages: [rust]
+    metadata: {cwe: "CWE-89", category: security}
+    pattern-either:
+      - pattern: $C.execute(format!(...))
+      - pattern: $C.query(format!(...))
+      - pattern: sqlx::query(&format!(...))
+
+  - id: rust-unsafe-block
+    message: >-
+      `unsafe` block — bypasses Rust's memory-safety guarantees. Audit for
+      out-of-bounds, use-after-free, and invalid transmutes; justify why it is
+      sound.
+    severity: WARNING
+    languages: [rust]
+    metadata: {cwe: "CWE-119", category: security}
+    pattern: unsafe { ... }
+
+  - id: rust-ssrf
+    message: >-
+      Outbound request to a URL built from input (SSRF). Validate against an
+      allow-list; block internal/metadata addresses.
+    severity: WARNING
+    languages: [rust]
+    metadata: {cwe: "CWE-918", category: security}
+    pattern-either:
+      - pattern: reqwest::get(format!(...))
+      - pattern: $C.get(format!(...))

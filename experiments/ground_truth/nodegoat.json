@@ -1,0 +1,13 @@
+{
+  "_comment": "NodeGoat ground truth — file-level: a scan catches a vuln if any shipped finding flags the listed file. Verified against real source (line numbers from repo).",
+  "vulns": [
+    {"name": "Server-Side JS Injection (eval)", "file": "app/routes/contributions.js", "line": 32, "category": "ssji", "evidence": "eval(req.body.preTax)"},
+    {"name": "NoSQL Injection ($where)", "file": "app/data/allocations-dao.js", "line": 78, "category": "nosql_injection", "evidence": "$where with unsanitized threshold"},
+    {"name": "Plaintext Password Storage", "file": "app/data/user-dao.js", "line": 25, "category": "weak_crypto", "evidence": "password stored/compared in plaintext"},
+    {"name": "ReDoS (catastrophic backtracking)", "file": "app/routes/profile.js", "line": 59, "category": "redos", "evidence": "/([0-9]+)+#/"},
+    {"name": "Broken Access Control (IDOR)", "file": "app/routes/allocations.js", "line": 18, "category": "broken_access_control", "evidence": "userId from req.params not session"},
+    {"name": "Improper Output Encoding (XSS context)", "file": "app/routes/profile.js", "line": 28, "category": "xss", "evidence": "encodeForHTML used in URL context"},
+    {"name": "Stored XSS via Memos", "file": "app/data/memos-dao.js", "line": 15, "category": "xss", "evidence": "unvalidated memo rendered with marked()"},
+    {"name": "SSRF via Research", "file": "app/routes/research.js", "line": 15, "category": "ssrf", "evidence": "needle.get(req.query.url + symbol)"}
+  ]
+}

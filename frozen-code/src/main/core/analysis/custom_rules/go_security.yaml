@@ -1,0 +1,76 @@
+rules:
+  - id: go-command-injection
+    message: >-
+      exec.Command invoking a shell ("sh -c" / "bash -c") with a built string,
+      or a command name from input. OS command injection. Pass fixed argv and
+      no shell.
+    severity: ERROR
+    languages: [go]
+    metadata: {cwe: "CWE-78", category: security}
+    pattern-either:
+      - pattern: exec.Command("sh", "-c", $X)
+      - pattern: exec.Command("bash", "-c", $X)
+      - pattern: exec.CommandContext($CTX, "sh", "-c", $X)
+
+  - id: go-sql-concat
+    message: >-
+      SQL query built by concatenation / fmt.Sprintf. User input here is SQL
+      injection. Use parameter placeholders ($1, ?) with query args.
+    severity: ERROR
+    languages: [go]
+    metadata: {cwe: "CWE-89", category: security}
+    pattern-either:
+      - pattern: $DB.Query("..." + $X, ...)
+      - pattern: $DB.QueryRow("..." + $X, ...)
+      - pattern: $DB.Exec("..." + $X, ...)
+      - pattern: $DB.Query(fmt.Sprintf(...), ...)
+      - pattern: $DB.Exec(fmt.Sprintf(...), ...)
+
+  - id: go-ssrf-http
+    message: >-
+      Outbound HTTP request to a URL built from input (SSRF). Validate against
+      an allow-list; block internal/metadata addresses.
+    severity: WARNING
+    languages: [go]
+    metadata: {cwe: "CWE-918", category: security}
+    pattern-either:
+      - pattern: http.Get($X + $Y)
+      - pattern: http.Post($X + $Y, ...)
+      - pattern: http.NewRequest($M, $X + $Y, ...)
+
+  - id: go-weak-crypto
+    message: >-
+      Weak hash (MD5/SHA1) or insecure RNG (math/rand) used where a
+      cryptographic primitive is required. Use sha256+ / crypto/rand.
+    severity: WARNING
+    languages: [go]
+    metadata: {cwe: "CWE-327", category: security}
+    pattern-either:
+      - pattern: md5.New()
+      - pattern: md5.Sum(...)
+      - pattern: sha1.New()
+      - pattern: sha1.Sum(...)
+
+  - id: go-path-traversal
+    message: >-
+      File path joined from input then opened. Without cleaning/validation
+      this is path traversal. Use filepath.Clean and confirm the result stays
+      under the intended root.
+    severity: WARNING
+    languages: [go]
+    metadata: {cwe: "CWE-22", category: security}
+    pattern-either:
+      - pattern: os.Open(filepath.Join($ROOT, $X))
+      - pattern: ioutil.ReadFile(filepath.Join($ROOT, $X))
+      - pattern: os.ReadFile(filepath.Join($ROOT, $X))
+
+  - id: go-template-injection
+    message: >-
+      text/template renders without contextual HTML escaping (use html/template
+      for web output). With user-controlled templates this enables injection.
+    severity: WARNING
+    languages: [go]
+    metadata: {cwe: "CWE-94", category: security}
+    pattern-either:
+      - pattern: text/template.New(...)
+      - pattern: ttmpl.Parse($X)

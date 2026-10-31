@@ -1,0 +1,42 @@
+rules:
+  - id: template-django-jinja-safe-filter
+    message: >-
+      Template variable rendered with the `|safe` filter (Django/Jinja) — this
+      disables auto-escaping and yields stored/reflected XSS if the value is
+      user-controlled. Remove `|safe`; escape on output.
+    severity: ERROR
+    languages: [generic]
+    metadata: {cwe: "CWE-79", category: security}
+    patterns:
+      - pattern-regex: '\{\{[^}]*\|\s*safe[^}]*\}\}'
+
+  - id: template-autoescape-off
+    message: >-
+      `{% autoescape off %}` block disables HTML escaping for everything
+      inside — any user-controlled variable rendered here is an XSS sink.
+    severity: ERROR
+    languages: [generic]
+    metadata: {cwe: "CWE-79", category: security}
+    patterns:
+      - pattern-regex: '\{%\s*autoescape\s+off\s*%\}'
+
+  - id: template-variable-in-script-context
+    message: >-
+      Template variable interpolated directly inside a <script> block. Even
+      with HTML auto-escaping, script-context interpolation breaks out of
+      string/JS context — XSS. JSON-encode and place in a data attribute.
+    severity: ERROR
+    languages: [generic]
+    metadata: {cwe: "CWE-79", category: security}
+    patterns:
+      - pattern-regex: '<script[^>]*>[^<]*\{\{[^}]+\}\}'
+
+  - id: template-ejs-unescaped
+    message: >-
+      EJS unescaped output `<%- ... %>` renders raw HTML — XSS if the value is
+      user-controlled. Use `<%= %>` (escaped) instead.
+    severity: WARNING
+    languages: [generic]
+    metadata: {cwe: "CWE-79", category: security}
+    patterns:
+      - pattern-regex: '<%-[^%]+%>'

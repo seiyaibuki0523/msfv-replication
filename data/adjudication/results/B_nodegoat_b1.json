@@ -1,0 +1,154 @@
+[
+ {
+  "id": "nodegoat-0038",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "medium",
+  "evidence": "app/views/profile.html:78, app/routes/profile.js:63-75, app/routes/profile.js:20-36, app/data/profile-dao.js:42-66, app/data/profile-dao.js:94-110, server.js:135-142, server.js:104-113, app/routes/index.js:47-48",
+  "justification": "The sink is real (swig autoescape is disabled and firstNameSafeString is raw req.body.firstName), but the variable is only populated in the bank-routing validation-error branch of handleProfileUpdate and rendered back into the submitting user's own response; it is never persisted and displayProfile (which uses the session's own userId) never sets it, so the claimed persistent XSS against a victim who views the profile does not exist. What exists is reflected XSS into the requester's own page (cross-user only via a CSRF-forced POST, since csurf is commented out), a materially weaker issue than described."
+ },
+ {
+  "id": "nodegoat-0046",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "server.js:78-102, package-lock.json:17558-17560 (express-session 1.15.6), express-session@1.15.6 session/cookie.js:28 (this.httpOnly = true), express-session README 'cookie.httpOnly ... By default, the HttpOnly attribute is set'",
+  "justification": "httpOnly is indeed not set explicitly, but the locked express-session 1.15.6 defaults Cookie.httpOnly to true, so the session cookie is emitted with the HttpOnly attribute and document.cookie cannot read it; the claim's premise ('defaulting it to false') and the XSS cookie-theft scenario built on it are wrong. Only NodeGoat's commented 'fix' text suggests otherwise."
+ },
+ {
+  "id": "nodegoat-0003",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "Gruntfile.js:158-178, Gruntfile.js:159, Gruntfile.js:163-166",
+  "justification": "exec() does build a shell string, but finalEnv comes only from process.env.NODE_ENV or the grunt CLI task argument (grunt db-reset:<arg>) of a local developer/CI task; no remote or untrusted input reaches it, and anyone able to set env vars or CLI args on the build host already has code execution. A code-quality concern, not a critical RCE."
+ },
+ {
+  "id": "nodegoat-0010",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "high",
+  "evidence": "app/routes/contributions.js:28-34, app/routes/contributions.js:47-55, app/routes/index.js:52, server.js:71-75, app/routes/session.js:36-42",
+  "justification": "handleContributionsUpdate is registered at POST /contributions behind only isLoggedIn and passes req.body.preTax/afterTax/roth straight to eval() before any isNaN/range check, so any authenticated user gets arbitrary server-side JS execution with access to require/process; this is exactly the documented SSJI entry."
+ },
+ {
+  "id": "nodegoat-0011",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "high",
+  "evidence": "app/routes/contributions.js:28-34, app/routes/contributions.js:47-55, app/routes/index.js:52, server.js:71-75",
+  "justification": "Lines 32-34 eval() the raw request-body fields of POST /contributions (isLoggedIn only), and the subsequent validation runs after evaluation, so payloads such as require('child_process').execSync('id') execute in the Node process as described; matches the documented SSJI entry."
+ },
+ {
+  "id": "nodegoat-0016",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "high",
+  "evidence": "app/routes/research.js:12-29, app/routes/index.js:76, app/routes/session.js:36-42",
+  "justification": "GET /research (isLoggedIn only) concatenates req.query.url and req.query.symbol, fetches the result with needle.get and writes the response body back to the client, so an authenticated attacker fully controls the outbound URL and receives the response; SSRF with response disclosure exactly as described, matching the documented SSRF entry."
+ },
+ {
+  "id": "nodegoat-0012",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "high",
+  "evidence": "app/routes/contributions.js:28-34, app/routes/contributions.js:36-41, app/routes/contributions.js:47-55, app/routes/index.js:52",
+  "justification": "eval(req.body.preTax) at line 32 (and 33-34) executes attacker-supplied JS from POST /contributions before the isNaN checks, giving RCE in the Node process as claimed; the analysis's line references (eval at 'line 27', fix at 'lines 32-34' rather than 38-40) are off but the mechanism and reachability are correct, and it is the documented SSJI entry."
+ },
+ {
+  "id": "nodegoat-0015",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "high",
+  "evidence": "app/routes/allocations.js:11-31, app/routes/index.js:63, app/data/allocations-dao.js:57-86, app/routes/session.js:36-42, app/views/tutorial/a4.html:31",
+  "justification": "GET /allocations/:userId takes userId from req.params and hands it to getByUserIdAndThreshold, which queries allocations by parseInt(userId) with no comparison against req.session.userId (isLoggedIn only checks that some session exists), so any logged-in user can read any other user's allocation records; this is the documented IDOR."
+ },
+ {
+  "id": "nodegoat-0026",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "high",
+  "evidence": "app/routes/research.js:12-29, app/routes/index.js:76",
+  "justification": "url = req.query.url + req.query.symbol is passed unvalidated to needle.get and the fetched body is echoed in the HTML response, so a logged-in attacker can make the server request internal or metadata endpoints and read the result; matches the documented SSRF entry (the route requires login, which does not negate the finding)."
+ },
+ {
+  "id": "nodegoat-0002",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "high",
+  "evidence": "app/routes/contributions.js:28-34, app/routes/contributions.js:47-55, app/routes/index.js:52",
+  "justification": "eval() on req.body.preTax/afterTax/roth in POST /contributions runs before the isNaN/range validation, so arbitrary server-side JS executes as claimed and the documented SSJI entry applies. Note the analysis's example payload beginning '1); ...' is a SyntaxError inside eval (there is no enclosing call to close); a payload such as '1; require(...)' works, so the flaw is in the example, not the mechanism."
+ },
+ {
+  "id": "nodegoat-0008",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "high",
+  "evidence": "app/routes/contributions.js:28-34, app/routes/contributions.js:47-55, app/routes/index.js:52",
+  "justification": "Line 33 (with 32 and 34) eval()s raw request-body values from POST /contributions; the analysis correctly notes that '1; <code>' returns 1 and passes the later isNaN/negative checks while the side effect has already run, so authenticated RCE is real and matches the documented SSJI entry (the commented fix is at lines 38-40, not 35-37, an immaterial slip)."
+ },
+ {
+  "id": "nodegoat-0005",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "high",
+  "evidence": "app/routes/contributions.js:28-34, app/routes/contributions.js:47-55, app/routes/index.js:52",
+  "justification": "eval(req.body.roth) at line 34 (and 32-33) executes attacker JS server-side before validation, so the RCE claim holds and matches the documented SSJI entry; the analysis mis-names the endpoint as POST /contributions/update whereas the handler is registered at POST /contributions (index.js:52), which does not change the finding."
+ },
+ {
+  "id": "nodegoat-0009",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "high",
+  "evidence": "app/routes/contributions.js:28-34, app/routes/contributions.js:47-55, app/routes/index.js:52",
+  "justification": "eval(req.body.preTax) at line 32 evaluates arbitrary user-supplied JS in the Node process for any logged-in user, exactly the documented SSJI weakness; the only inaccuracy is the endpoint path (/contributions/update in the analysis vs the actual POST /contributions), which is immaterial to exploitability."
+ },
+ {
+  "id": "nodegoat-0017",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "app/routes/index.js:70-73, app/views/layout.html:62, app/routes/session.js:36-42, app/views/tutorial/a10.html:29",
+  "justification": "/learn passes req.query.url unvalidated to res.redirect(), which honours absolute URLs, so a crafted /learn?url=https://evil link 302s any logged-in user off-site; a genuine open redirect usable for phishing (NodeGoat's A10 lesson), but not among the documented entries supplied for this file."
+ },
+ {
+  "id": "nodegoat-0023",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": null,
+  "confidence": "medium",
+  "evidence": "app/routes/index.js:70-73, app/views/layout.html:62, app/routes/session.js:36-42",
+  "justification": "The open redirect at /learn is real (req.query.url goes straight into res.redirect and absolute URLs are accepted) and the phishing scenario holds; however the claim's added assertion that the victim's session cookie accompanies the redirect and enables session hijacking is wrong (cookies are scoped to the app origin and are not sent to the attacker's site), so the impact is inflated. Not among the documented entries supplied for this file."
+ },
+ {
+  "id": "nodegoat-0042",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": null,
+  "confidence": "medium",
+  "evidence": "server.js:78-102, server.js:144-147, server.js:18-28, express-session@1.15.6 session/cookie.js:26-28 and README 'cookie.secure ... By default, the Secure attribute is not set'",
+  "justification": "cookie.secure is never set (express-session leaves Secure off by default) and the app listens only via plain http.createServer, so the connect.sid session cookie is transmitted in cleartext and can be sniffed and replayed exactly as described. The root cause is the HTTP-only deployment (secure:true alone would break sessions here), which the claim also tells the reader to fix; not among the documented entries supplied for this file."
+ },
+ {
+  "id": "nodegoat-0004",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "high",
+  "evidence": "app/routes/contributions.js:28-34, app/routes/contributions.js:47-55, app/routes/index.js:52",
+  "justification": "eval(req.body.afterTax) at line 33 (with 32 and 34) evaluates attacker-controlled strings in the server process before the isNaN validation, so authenticated RCE is real and this is the documented SSJI entry; the analysis's 'line 27' reference and '/contributions/update' path are inaccurate (actual: line 33, POST /contributions) but do not affect the finding."
+ },
+ {
+  "id": "nodegoat-0000",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "high",
+  "evidence": "app/data/allocations-dao.js:57-86, app/data/allocations-dao.js:63-76, app/routes/allocations.js:19-23, app/routes/index.js:63, app/views/tutorial/a1.html:297",
+  "justification": "threshold flows from req.query on GET /allocations/:userId into a template-literal $where string with no validation, so a logged-in user can inject server-side JS (e.g. the in-code documented 1'; return 1 == '1, or a while(true) DoS) and bypass the userId filter to read every user's allocations; this is the documented NoSQL injection. Minor exaggerations: $where JS has no db handle, so db.adminCommand is not reachable, and the trailing // in the example payload may need adjusting depending on how the server wraps the expression."
+ },
+ {
+  "id": "nodegoat-0007",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "high",
+  "evidence": "app/routes/contributions.js:28-34, app/routes/contributions.js:47-55, app/routes/index.js:52",
+  "justification": "The eval() calls at lines 32-34 execute user-supplied JS from the POST /contributions body before the isNaN checks at line 47, and the analysis correctly explains why '1; <code>' passes validation after the side effect runs; authenticated RCE as claimed, matching the documented SSJI entry (its line numbers and the '/contributions/update' path are off but immaterial)."
+ }
+]

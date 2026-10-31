@@ -1,0 +1,23 @@
+vuln_id,bench,match_mode,file,line,line_tolerance,function,challenge,category,source,notes
+sb:access_control/unprotected0.sol:L25,smartbugs,line,dataset/access_control/unprotected0.sol,25,2,,,access_control,vulnerabilities.json,行級。smartbugs_gt.py 自動生成全部，這列只是格式範例
+dvd:unstoppable,dvd,challenge,,,0,,unstoppable,denial_of_service,DVD challenge spec,挑戰式：漏洞跨多合約，行級標註不成立 → 單位是 challenge。category 請自行確認
+dvd:naive-receiver,dvd,challenge,,,0,,naive-receiver,access_control,DVD challenge spec,挑戰式：漏洞跨多合約，行級標註不成立 → 單位是 challenge。category 請自行確認
+dvd:truster,dvd,challenge,,,0,,truster,access_control,DVD challenge spec,挑戰式：漏洞跨多合約，行級標註不成立 → 單位是 challenge。category 請自行確認
+dvd:side-entrance,dvd,challenge,,,0,,side-entrance,reentrancy,DVD challenge spec,挑戰式：漏洞跨多合約，行級標註不成立 → 單位是 challenge。category 請自行確認
+dvd:the-rewarder,dvd,challenge,,,0,,the-rewarder,arithmetic,DVD challenge spec,挑戰式：漏洞跨多合約，行級標註不成立 → 單位是 challenge。category 請自行確認
+dvd:selfie,dvd,challenge,,,0,,selfie,governance,DVD challenge spec,挑戰式：漏洞跨多合約，行級標註不成立 → 單位是 challenge。category 請自行確認
+dvd:compromised,dvd,challenge,,,0,,compromised,oracle_manipulation,DVD challenge spec,挑戰式：漏洞跨多合約，行級標註不成立 → 單位是 challenge。category 請自行確認
+dvd:puppet,dvd,challenge,,,0,,puppet,oracle_manipulation,DVD challenge spec,挑戰式：漏洞跨多合約，行級標註不成立 → 單位是 challenge。category 請自行確認
+dvd:puppet-v2,dvd,challenge,,,0,,puppet-v2,oracle_manipulation,DVD challenge spec,挑戰式：漏洞跨多合約，行級標註不成立 → 單位是 challenge。category 請自行確認
+dvd:puppet-v3,dvd,challenge,,,0,,puppet-v3,oracle_manipulation,DVD challenge spec,挑戰式：漏洞跨多合約，行級標註不成立 → 單位是 challenge。category 請自行確認
+dvd:free-rider,dvd,challenge,,,0,,free-rider,logic,DVD challenge spec,挑戰式：漏洞跨多合約，行級標註不成立 → 單位是 challenge。category 請自行確認
+dvd:backdoor,dvd,challenge,,,0,,backdoor,access_control,DVD challenge spec,挑戰式：漏洞跨多合約，行級標註不成立 → 單位是 challenge。category 請自行確認
+dvd:climber,dvd,challenge,,,0,,climber,access_control,DVD challenge spec,挑戰式：漏洞跨多合約，行級標註不成立 → 單位是 challenge。category 請自行確認
+dvd:wallet-mining,dvd,challenge,,,0,,wallet-mining,access_control,DVD challenge spec,挑戰式：漏洞跨多合約，行級標註不成立 → 單位是 challenge。category 請自行確認
+dvd:abi-smuggling,dvd,challenge,,,0,,abi-smuggling,access_control,DVD challenge spec,挑戰式：漏洞跨多合約，行級標註不成立 → 單位是 challenge。category 請自行確認
+dvd:shards,dvd,challenge,,,0,,shards,logic,DVD challenge spec,挑戰式：漏洞跨多合約，行級標註不成立 → 單位是 challenge。category 請自行確認
+dvd:curvy-puppet,dvd,challenge,,,0,,curvy-puppet,oracle_manipulation,DVD challenge spec,挑戰式：漏洞跨多合約，行級標註不成立 → 單位是 challenge。category 請自行確認
+dvd:withdrawal,dvd,challenge,,,0,,withdrawal,logic,DVD challenge spec,挑戰式：漏洞跨多合約，行級標註不成立 → 單位是 challenge。category 請自行確認
+pygoat:introduction/mitre.py,pygoat,file,introduction/mitre.py,,0,,,A03-injection,PyGoat lab 文件,lab 級。能定位到函式就改 match_mode=function 並填 function 欄
+pygoat:introduction/lab_code/test.py,pygoat,file,introduction/lab_code/test.py,,0,,,A08-insecure-deserialization,PyGoat lab 文件,lab 級。能定位到函式就改 match_mode=function 並填 function 欄
+nodegoat:allocations-nosqli,nodegoat,file,app/routes/allocations.js,,0,,,A03-injection,OWASP NodeGoat tutorial,教材項目級

@@ -1,0 +1,322 @@
+[
+ {
+  "id": "smartbugs-0152",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "medium",
+  "evidence": "dataset/arithmetic/BECToken.sol:179-182, 189-193, 227-238, 249-261",
+  "justification": "Standard OpenZeppelin Ownable/Pausable: the single owner can only pause/unpause transfers and transfer ownership; there is no upgrade or drain path (the analysis hedges these as 'not shown'). Owner-controlled pause is a design/trust assumption requiring key compromise, not an exploitable code weakness; 'high' severity and 'total loss' are materially overstated. Unrelated to the documented batchTransfer overflow at line 264."
+ },
+ {
+  "id": "smartbugs-0098",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/unchecked_low_level_calls/0xa1fceeff3acc57d257b917e30c4df661401d6431.sol:20-34",
+  "justification": "`tos` is a caller-supplied calldata parameter, not a storage array; an oversized array only makes that caller's own transaction run out of gas and the stateless function remains callable by everyone with smaller inputs. There is no persistent growth, no funds held by the contract, and no 'permanently uncallable' state, so the described DoS data flow does not exist. The documented issue is the unchecked call at line 31, which the analysis does not adjudicate."
+ },
+ {
+  "id": "smartbugs-0207",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/bad_randomness/smart_billions.sol:154, 298-300, 636, 646-658",
+  "justification": "`setBetMax` is onlyOwner as described, but the attack story is wrong: `playSystem` hard-caps every bet at `msg.value <= 1 ether` (line 636) independent of `hashBetMax` (default 5 ether already exceeds the cap), so raising it cannot 'inflate bet limits'; `hashBetMax` only governs per-block aggregate bet volume. Owner control of a game parameter is a design/trust matter with no drain path (no 'USDC reserves' exist)."
+ },
+ {
+  "id": "smartbugs-0482",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "medium",
+  "evidence": "dataset/unchecked_low_level_calls/0xbebbfe5b549f5db6e6c78ca97cac19d1fb03082c.sol:10-15, 19, 24-29, 37-41",
+  "justification": "The analysis describes code that is not there: `withdraw` does not `require(msg.sender == Owner)` nor `Owner.transfer(this.balance)`; it is an `if`-modifier-gated, Deposits-bounded `msg.sender.transfer(amount)`, and `proxy` is a plain `call.value(msg.value)` with no access control and no upgrade semantics (not delegatecall). The real issues here (honeypot with shadowed `Owner`, silent-failing modifier, unchecked call at line 14, Deposits never decremented) are not what the claim states."
+ },
+ {
+  "id": "smartbugs-0070",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/unchecked_low_level_calls/0x663e4229142a27f00bafb5d087e1e730648314c3.sol:1506-1533",
+  "justification": "The flagged line is itself the overflow guard: `require(_startingPrice == uint256(uint128(_startingPrice)))` (and the same for endingPrice/duration) reverts on any value that would truncate, so the casts at lines 1526-1528 in `createAuction` (not a constructor) cannot silently truncate; the analysis concedes the check fails on overflow and falls back to hypothetical 'forked/removed require' scenarios. No exploitable truncation exists."
+ },
+ {
+  "id": "smartbugs-0383",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/unchecked_low_level_calls/0x663e4229142a27f00bafb5d087e1e730648314c3.sol:7, 27-37, 43-46",
+  "justification": "Under pragma ^0.4.24, `function Ownable()` declared inside `contract Ownable` is the constructor (name matches the contract), executed once at deployment and not callable afterwards, so 'any caller can claim ownership by invoking Ownable()' is untrue. The setCEO/setCFO/setCOO and withdraw functions the analysis chains on belong to PandaAccessControl, not to this Ownable at all."
+ },
+ {
+  "id": "smartbugs-0119",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/access_control/FibonacciBalance.sol:26-33, 36-39",
+  "justification": "Line 32 uses `msg.sender.transfer`, which forwards only 2300 gas, so a recipient fallback cannot re-enter `withdraw()` (which needs SSTORE and a delegatecall); moreover both state writes (withdrawalCounter, calculatedFibNumber via delegatecall) already happen before the transfer, so the claimed stale-state reentrancy does not exist. The real, documented weakness is the unrestricted delegatecall/storage-collision (lines 31, 38), a different mechanism the analysis does not describe."
+ },
+ {
+  "id": "smartbugs-0036",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/unchecked_low_level_calls/0x2972d548497286d18e92b5fa1f8f9139e5653fd2.sol:9-17",
+  "justification": "`_tos` is a caller-supplied calldata array, not a storage array; a huge array only exhausts that caller's own transaction, the stateless contract holds no funds, and the function stays callable with normal inputs, so the asserted persistent gas-limit DoS and 'locking all tokens and funds' do not exist. The documented issue is the unchecked call at line 14 (and, undocumented, the arbitrary `from` parameter abusing approvals), neither of which the claim describes."
+ },
+ {
+  "id": "smartbugs-0310",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": false,
+  "confidence": "low",
+  "evidence": "dataset/reentrancy/spank_chain_payment.sol:756-817 (esp. 766-784, 792-795, 798-813), 405, 465-492",
+  "justification": "The analysis' stated path is wrong (`.transfer` forwards 2300 gas so a party fallback cannot re-enter, and erc20Balances[0..1] ARE zeroed at 794-795), but byzantineCloseChannel is genuinely reentrant with the claimed impact: `channel.token` is attacker-chosen at createChannel, its `transfer` (804/808) runs while `isOpen` is still true (set false only at 813), and the never-cleared deposit slots ethBalances[2..3]/erc20Balances[2..3] are re-credited to [0..1] on every re-entrant call (772-781), so each nested call pays out the deposit amounts again from the pooled contract balance. Weakness class, location and impact match; the exploit vector described does not. Not among the documented lines (426/430 are LCOpenTimeout)."
+ },
+ {
+  "id": "smartbugs-0071",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/unchecked_low_level_calls/0x663e4229142a27f00bafb5d087e1e730648314c3.sol:1746-1772",
+  "justification": "Line 1766 is in SaleClockAuction.createGen0Auction (not a constructor) and is guarded nine lines earlier by `require(_startingPrice == uint256(uint128(_startingPrice)))` / endingPrice / duration round-trip checks (1757-1759) plus `require(msg.sender == address(nonFungibleContract))`, so the 'without overflow checks' silent-truncation attack reverts before the casts; no truncation is reachable."
+ },
+ {
+  "id": "smartbugs-0212",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/bad_randomness/lucky_doubler.sol:87-113, 127-133",
+  "justification": "Nothing in the contract iterates `entries` or `unpaidEntries`: `rand(max)` is O(1) arithmetic on the length, access is by single index (line 95) and removal is swap-and-pop (108-111), so array growth does not raise per-call gas and the asserted 'loop over unpaidEntries exceeds the block gas limit' data flow does not exist. Unrelated to the documented blockhash randomness at 127-132."
+ },
+ {
+  "id": "smartbugs-0466",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/unchecked_low_level_calls/0xb0510d68f210b7db66e8c7c814f22680f2b8d1d6.sol:48-53, 42-44, 65-76",
+  "justification": "`newPuppet` is gated by `require(msg.sender == owner)`, so an attacker cannot grow `puppets`, and no function ever iterates the array (getPuppetCount returns length; fundPuppets uses the fixed `extra[0..3]` mapping); the analysis itself concedes no iterating function exists and argues only about hypothetical future code. Informational at most, no realistic security impact."
+ },
+ {
+  "id": "smartbugs-0170",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "medium",
+  "evidence": "dataset/arithmetic/overflow_simple_add.sol:7, 12-15",
+  "justification": "Under `pragma solidity 0.4.25` the public `add()` performs an unchecked `balance += deposit` (line 14), so `add(2**256-1)` silently wraps the `balance` state variable \u2014 exactly the documented ARITHMETIC issue at line 14. The analysis misstates the signature (`add(a,b)`, `uint result = a + b`) but the mechanism, function and consequence (silent wraparound of the balance) are correct."
+ },
+ {
+  "id": "smartbugs-0308",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/reentrancy/spank_chain_payment.sol:495-546 (esp. 506, 531, 533-541)",
+  "justification": "The claim that `consensusCloseChannel` transfers before setting `isOpen = false` is contradicted by the code: `Channels[_lcID].isOpen = false` is executed at line 531, before the ETH transfers (534-535) and token transfers (539-540), so a re-entrant call for the same channel fails `require(Channels[_lcID].isOpen == true)` at 506. The described double-close does not exist."
+ },
+ {
+  "id": "smartbugs-0236",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/denial_of_service/list_dos.sol:31-86 (esp. 74-77)",
+  "justification": "Line 75 uses `.send()`, which forwards only a 2300-gas stipend, so a creditor's fallback cannot re-enter `lendGovernmentMoney` (any useful path needs SSTOREs and value-bearing calls); the described repeated payout of the same creditor is impossible. The documented weakness is the array-reset gas DoS at 46/48, a different mechanism not described by the claim."
+ },
+ {
+  "id": "smartbugs-0461",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/unchecked_low_level_calls/0x89c1b3807d4c67df034fffb62f3509561218d30b.sol:142-194 (esp. 143-150, 162-164, 168-169, 178-181)",
+  "justification": "The scenario relies on `send`/low-level `call` 'reverting' and leaving state partially updated; in Solidity 0.4 those return false without reverting (that is precisely the documented unchecked-call issue), and if the whole transaction reverted no refund would have been paid to double. Moreover fee=DELIVERED_FEE_FLAG and unrespondedCnt-- are written at 168-169 BEFORE the refund call at 180, deliver() is restricted to SGX_ADDRESS, and the flagged line 162 is guarded by the DELIVERED check at 146. The analysis does not describe the actual unchecked-send weakness."
+ },
+ {
+  "id": "smartbugs-0218",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/bad_randomness/smart_billions.sol:360-384 (esp. 362-365, 378-382)",
+  "justification": "The order of operations is misdescribed: in `pay()` the else-branch writes walletBalance, wallets[msg.sender].balance and nextWithdrawBlock at 379-381 BEFORE `msg.sender.transfer(maxpay)` at 382, and `payWallet` zeroes the balance (363) before calling pay; additionally `.transfer` forwards only 2300 gas so re-entering payWallet/disinvest is impossible, and nextWithdrawBlock is pushed one month ahead anyway. No reentrant double withdrawal exists."
+ },
+ {
+  "id": "smartbugs-0508",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/unchecked_low_level_calls/0xe09b1ab8111c2729a76f16de96bc86a7af837928.sol:228-236, 307-320, 162-171",
+  "justification": "Line 313 is `requester.transfer(...)` (2300-gas stipend), so the player's fallback cannot re-enter `play()`; furthermore `refund` requires the bet to be expired (`block.number > bet.blockNumber + 250`, line 234) while `play` requires it to be unexpired (171), so the two paths are mutually exclusive and the analysis' 'refund before expiration' premise is wrong. The described lockedInBets manipulation is not possible."
+ },
+ {
+  "id": "smartbugs-0034",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/access_control/parity_wallet_bug_1.sol:46-68, 97-100, 140, 152",
+  "justification": "Line 51 is an abstract, body-less declaration inside the `WalletAbi` interface contract; the actual implementations in WalletLibrary (`changeOwner` at 140, `addOwner` at 152) carry `onlymanyowners(sha3(msg.data))`, so the claim that these functions can be invoked 'without satisfying any access checks' misreads an ABI stub as an unguarded implementation. The real, documented bug is the unprotected `initWallet` (223) reachable via the delegatecall fallback (437), which the analysis does not describe."
+ },
+ {
+  "id": "smartbugs-0245",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/denial_of_service/list_dos.sol:35-51, 82",
+  "justification": "The claimed mechanism \u2014 a malicious creditor's failing fallback makes `.send()` revert the whole transaction so the arrays are never cleared \u2014 is wrong: `.send()` returns false on failure and never propagates a revert, so lines 42-49 always execute; a hypothetical full revert would also be atomic, not leave 'creditorAddresses.length > 0 but creditorAmounts.length == 0'. The flagged line 82 is an unrelated refund. The documented DoS at 46/48 is the gas cost of resetting a huge array, a different mechanism the claim does not state."
+ },
+ {
+  "id": "smartbugs-0463",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/unchecked_low_level_calls/0xb11b2fed6c9354f7aa2f658d3b4d7b31d8a13b77.sol:10-15, 19, 37-41",
+  "justification": "The claimed mechanism does not exist: `proxy()` performs `target.call.value(msg.value)(data)` \u2014 a plain CALL forwarding only the caller's attached value \u2014 not a delegatecall, so it cannot 'upgrade logic', alter the Proxy's storage or drain `Deposits`. The analysis even notes proxy has no access control, which makes the 'compromised owner key' framing moot; the actual issues (shadowed `Owner`, silent `if` modifier, unchecked call at line 14) are not what is claimed."
+ },
+ {
+  "id": "smartbugs-0261",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/front_running/odds_and_evens.sol:25-46",
+  "justification": "Line 41 is `.send(1800 finney)` (2300-gas stipend): the winner's fallback cannot re-enter `play`, which additionally requires `msg.value == 1 ether` (a value-bearing call is impossible within the stipend) and would index `players[2]` out of bounds if tot were still 2. The described double payout via reentrancy is not possible; the documented issue is front-running (25/28), a different mechanism."
+ },
+ {
+  "id": "smartbugs-0479",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "medium",
+  "evidence": "dataset/unchecked_low_level_calls/0xb620cee6b52f96f3c6b253e6eea556aa2d214a99.sol:32-34, 59-61, 77-95, 117-122, 131-138",
+  "justification": "The described path is not how the code behaves: `guessSeed` returns unconditionally at line 118 (the `if` at 119-121 is dead code) and even that dead branch assigns `owner = winner`, not the reverse, so it never makes the caller `winner`; `claimPrize` is `onlyWinner`, not an owner function, and `winPrize` moves 1 wei. (The owner can reach `winner` only through `manipulateSecret`/`unlockSecret`, and the misnamed constructor `DranMe()` actually lets anyone become owner \u2014 neither is what the claim states.)"
+ },
+ {
+  "id": "smartbugs-0752",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "medium",
+  "evidence": "dataset/denial_of_service/send_loop.sol:21-26",
+  "justification": "`refundAll` wraps every `send` in a `require` inside an unbounded push-style loop (line 24), so a single recipient whose fallback rejects ETH (or an insufficient contract balance for one entry) reverts the whole loop and blocks all refunds \u2014 the documented DENIAL_OF_SERVICE at line 24. Caveat: in this reduced snippet `refundAddresses` is only populated in the constructor, so an attacker cannot insert an address, but the vulnerable code path is exactly the benchmark's labelled weakness."
+ },
+ {
+  "id": "smartbugs-0405",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "medium",
+  "evidence": "dataset/unchecked_low_level_calls/0x663e4229142a27f00bafb5d087e1e730648314c3.sol:1416-1456, 1461, 1514, 1541, 1637-1680, 1718-1791, 193-216, 621-678, 869",
+  "justification": "The onlyOwner `pause()` at 1442 belongs to the OpenZeppelin Pausable mixed into the ClockAuction contracts; it has no effect on the PandaCore functions the analysis lists (breedWithAuto, giveBirth, createSaleAuction, transfer, approve), which are governed by PandaAccessControl's separate `paused` flag (pause onlyCLevel/unpause onlyCEO, lines 193-216). Within the auction contracts the derived `createAuction`/`bid` overrides drop `whenNotPaused`, so the owner's pause blocks almost nothing. A single-key pause pattern exists but the claimed scope and 'funds trapped' impact are materially wrong."
+ },
+ {
+  "id": "smartbugs-0104",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/unchecked_low_level_calls/0x663e4229142a27f00bafb5d087e1e730648314c3.sol:2166-2186, 484-488, 583-585, 890-897, 963-970",
+  "justification": "The `uint32(_matronId)/uint32(_sireId)` casts at 2185 cannot truncate a real token: `_createPanda` enforces `require(newKittenId == uint256(uint32(newKittenId)))` (488) so every existing ID fits in uint32, and a fabricated ID > 2^32-1 fails `require(_owns(msg.sender, _matronId))` (2175, unowned) and the storage-array reads in `isReadyToBreed`/`_canBreedWithViaAuction` (out-of-bounds throw). The guards make the described state corruption unreachable."
+ },
+ {
+  "id": "smartbugs-0906",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": false,
+  "confidence": "medium",
+  "evidence": "dataset/reentrancy/spank_chain_payment.sol:756-817 (esp. 760-763, 766-784, 792-813), 380-418 (405), 465-492, 550-597",
+  "justification": "Correct in substance: `channel.token` is attacker-supplied at createChannel, and in byzantineCloseChannel `channel.token.transfer` (804/808) runs before `isOpen = false` (813) with no reentrancy guard, so a malicious token can re-enter while all `require`s at 760-763 still pass; because the deposit slots ethBalances[2..3]/erc20Balances[2..3] are never cleared they are re-added to [0..1] on each re-entrant call (772-781) and paid out again (798-808), letting the attacker drain pooled ETH from other channels (nested calls can repeat the ETH `.transfer`, so ETH is not limited to once as stated). Not one of the documented lines (426/430 are LCOpenTimeout); the flagged custom-error rule is irrelevant to the claim."
+ },
+ {
+  "id": "smartbugs-0109",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/unchecked_low_level_calls/0x663e4229142a27f00bafb5d087e1e730648314c3.sol:1874-1905",
+  "justification": "Line 1887 is the round-trip overflow guard `require(_endingPrice == uint256(uint128(_endingPrice)))`, which reverts for any value that would truncate; the analysis itself concedes the check rejects overflowing inputs and downgrades its claim to 'fragile pattern / future refactor risk'. With the guard in place (plus `msg.sender == nonFungibleContract`), there is no exploitable truncation \u2014 a style remark at most."
+ },
+ {
+  "id": "smartbugs-0369",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": false,
+  "confidence": "medium",
+  "evidence": "dataset/unchecked_low_level_calls/0x627fa62ccbb1c1b04ffaecd72a53e37fc0e17839.sol:9-34, 38, 54-59, 67-74, 87-99",
+  "justification": "The owner (Ownable.owner, checked by onlyOwner) really can drain all user deposits: `WithdrawToHolder(_addr, _wei)` only requires `Holders[_addr] > 0` and sends an arbitrary `_wei` unbounded by that balance (94-96), so after a >1 ether Deposit from an owner-controlled address the whole contract balance can be sent to it. The analysis' narrative is muddled (it ignores the two-step confirmOwner and the shadowed `owner` that makes public initTokenBank ineffective) but its stated capability and impact \u2014 single key can take all user funds \u2014 hold. Not among the documented entries (unchecked call at 44)."
+ },
+ {
+  "id": "smartbugs-0278",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/reentrancy/0xb93430ce38ac4a6bb47fb1fc085ea669353fd89e.sol:50-74",
+  "justification": "`History` is appended to but never iterated anywhere in the file; its only reader is the auto-generated indexed getter, which is O(1). The analysis argues about hypothetical future loops, so the DoS is speculative with no security impact in this code. Unrelated to the documented reentrancy at line 38."
+ },
+ {
+  "id": "smartbugs-0220",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "medium",
+  "evidence": "dataset/bad_randomness/smart_billions.sol:267-272, 289-292, 298-308, 310-324, 329-331, 360-384, 436-454",
+  "justification": "The privileged drain paths the analysis asserts do not exist: `pay` is private and `payWallet`/`disinvest` only pay msg.sender's own wallet/token balance; `coldStore` is explicitly capped so it cannot touch investBalance*0.9 + walletBalance (318-321); `hotStore` is a public deposit; `setInvestStart(0)` reverts (`block.number < _when`); and changing owner does not freeze user withdrawals. The real single-owner capabilities (setBetMax, resetBet, capped coldStore) are far from 'full control over contract funds', so the story is untrue rather than merely exaggerated."
+ },
+ {
+  "id": "smartbugs-0007",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/access_control/wallet_02_refund_nosub.sol:23-37",
+  "justification": "`withdraw` is a per-user function correctly bounded by `require(amount <= balances[msg.sender])` \u2014 it is not a privileged function lacking access control, and the claimed `withdraw(this.balance)` by a zero-balance caller is rejected by that require; `transfer` (2300 gas) also rules out the hand-waved reentrancy. The documented bug is in `refund()` (line 36 pays without zeroing the balance), which the analysis never mentions."
+ },
+ {
+  "id": "smartbugs-0416",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/unchecked_low_level_calls/0x84d9ec85c9c568eb332b7226a8f826d897e0a4a8.sol:71, 81-90",
+  "justification": "`indexarray` is pushed to but never iterated (only `numberOfIndex()` returns its length and the public getter is indexed); the analysis admits iteration is merely 'implied by the rule name'. Unbounded growth therefore causes no gas-limit DoS here \u2014 at most an informational note (the unrestricted `writeIndex` is a spam/integrity issue, not the claimed DoS). Unrelated to the documented unchecked call at 56."
+ },
+ {
+  "id": "smartbugs-0436",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/unchecked_low_level_calls/0x958a8f594101d2c0485a52319f29b2647f2ebc06.sol:37-48, 53-56, 106-142",
+  "justification": "The single-owner pattern exists (owner controls execute/createMarriage/setStatus/setMajorEvent), but the impact is materially overstated: the Marriage contract holds no user assets (sendMessage forwards all ETH to the owner immediately), there is no upgrade mechanism, and ownership transfer is actually two-step via acceptOwnership (44-48), contrary to the analysis. A compromised key can only vandalise a personal registry \u2014 not 'drain value'."
+ },
+ {
+  "id": "smartbugs-0192",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/bad_randomness/blackjack.sol:68-73, 133-156, 159-247 (223)",
+  "justification": "All payouts in `checkGameResult` use `msg.sender.send(...)` (2300-gas stipend), so the player's fallback cannot re-enter `hit()`/`stand()` (which push to storage arrays and write state); the multi-payout reentrancy described is impossible. The documented issue is blockhash/timestamp randomness (17-21), a different mechanism."
+ },
+ {
+  "id": "smartbugs-0132",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/access_control/rubixi.sol:23-29, 82-97",
+  "justification": "`creator.send(collectedFees)` at line 85 forwards only 2300 gas, so the creator's fallback cannot re-enter `collectAllFees`/`collectFeesInEther` (both write storage); the described recursive fee extraction is impossible, and a creator can already take the fees legitimately anyway. The documented weakness is the misnamed constructor `DynamicPyramid()` (23-24) letting anyone become creator \u2014 a different mechanism the analysis does not describe."
+ },
+ {
+  "id": "smartbugs-0749",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "medium",
+  "evidence": "dataset/denial_of_service/send_loop.sol:21-26",
+  "justification": "The claim describes the documented DoS-with-unexpected-revert at line 24: `require(refundAddresses[x].send(...))` inside the push-style loop lets one failing recipient (rejecting fallback, or insufficient balance for one entry) revert the entire refund round. Minor inaccuracies (it says return values are unchecked and cites a nonexistent `refundTRA`; in this snippet addresses are only set in the constructor) do not change the mechanism, which matches the benchmark's labelled weakness."
+ },
+ {
+  "id": "smartbugs-0242",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/denial_of_service/list_dos.sol:35-51 (39-40, 44)",
+  "justification": "Lines 39-40 use `.send()` (2300-gas stipend), so neither the last creditor nor corruptElite can re-enter `lendGovernmentMoney`, and a value-bearing re-entrant call is impossible within the stipend; the 'profitFromCrash paid twice' scenario (which also invokes non-existent line numbers and 'flash loan timing') cannot occur. The documented DoS at 46/48 is the array-reset gas cost, a different mechanism."
+ },
+ {
+  "id": "smartbugs-0450",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/unchecked_low_level_calls/0x9d06cbafa865037a01d322d3f4222fa3e04e5488.sol:25, 39-57, 60-67, 76-79, 82-87",
+  "justification": "The owner functions behave as described (change_active pauses sales, withdraw sends the balance to the hard-coded `owner`), but the contract is a token sale that holds only the owner's own proceeds \u2014 buyers receive tokens immediately and have no assets or balances in the contract \u2014 so 'users cannot recover assets' and 'high' severity are materially overstated; owner withdrawal of sale proceeds is the design. Unrelated to the documented unchecked sends at 54/65."
+ },
+ {
+  "id": "smartbugs-0494",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "dataset/unchecked_low_level_calls/0xbaa3de6504690efb064420d89e871c27065cdd52.sol:10-15, 19, 24-29, 37-41",
+  "justification": "The central claim misreads modifier semantics: `modifier onlyOwner { if (msg.sender == Owner) _; }` skips the function body entirely when the condition is false (it fails silently instead of reverting), so non-owners cannot execute `transferOwner` or `withdraw` \u2014 access control is enforced, just without a revert. (The genuine issues are the shadowed `Owner` honeypot, the unchecked call at line 14 and Deposits never being decremented, none of which the analysis states.)"
+ }
+]

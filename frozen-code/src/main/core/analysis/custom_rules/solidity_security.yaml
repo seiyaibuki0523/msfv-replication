@@ -1,0 +1,946 @@
+rules:
+  # =======================================================================
+  #  Cevanex — Solidity Security Rules (Commercial Grade)
+  #  Version: 3.0.0
+  #  Last Updated: 2026-04-23
+  #
+  #  Coverage:
+  #    - Reentrancy (3 rules)
+  #    - Integer Safety (2 rules)
+  #    - Access Control (4 rules)
+  #    - Delegatecall / Proxy (3 rules)
+  #    - Oracle & Price Manipulation (3 rules)
+  #    - Flash Loan (1 rule)
+  #    - Signature / Replay (2 rules)
+  #    - Denial of Service (3 rules)
+  #    - ERC Token Pitfalls (3 rules)
+  #    - Front-Running / MEV (2 rules)
+  #    - Miscellaneous High-Impact (5 rules)
+  #    - Unsafe Casting & Type Safety (2 rules)
+  #    - Centralization & Governance (3 rules)
+  #    - Upgradeable Contracts (2 rules)
+  #    - Cross-Chain & Bridge (2 rules)
+  #    - Gas & Returndata Safety (3 rules)
+  #    - Missing Events & Logging (1 rule)
+  #    - Create2 & Metamorphic (1 rule)
+  #
+  #  Total: 45 rules
+  # =======================================================================
+
+  # -----------------------------------------------------------------------
+  # 1. REENTRANCY
+  # -----------------------------------------------------------------------
+  - id: cevanex-reentrancy-state-after-call
+    message: >
+      Reentrancy risk: state is modified AFTER an external call or ETH transfer.
+      An attacker can re-enter this function before the state update completes.
+      Apply the Checks-Effects-Interactions pattern or use ReentrancyGuard.
+    severity: ERROR
+    languages: [generic]
+    metadata:
+      cwe: "CWE-841"
+      owasp: "A01:2021"
+      category: security
+      confidence: HIGH
+      cevanex_tier: critical
+    patterns:
+      - pattern: |
+          $ADDR.call{value: $VAL}($DATA)
+          ...
+          $STATE = $NEW
+      - pattern: |
+          $ADDR.transfer($AMT)
+          ...
+          $STATE = $NEW
+      - pattern: |
+          $ADDR.send($AMT)
+          ...
+          $STATE = $NEW
+    paths:
+      exclude:
+        - "*.test.sol"
+        - "test/**"
+        - "mocks/**"
+        - "node_modules/**"
+
+  - id: cevanex-reentrancy-no-guard
+    message: >
+      External ETH-sending call without a reentrancy guard (nonReentrant modifier
+      or manual mutex). Consider using OpenZeppelin ReentrancyGuard.
+    severity: WARNING
+    languages: [generic]
+    metadata:
+      cwe: "CWE-841"
+      owasp: "A01:2021"
+      category: security
+      confidence: MEDIUM
+      cevanex_tier: high
+    pattern-regex: "\\.call\\{value:"
+    paths:
+      exclude:
+        - "*.test.sol"
+        - "test/**"
+        - "mocks/**"
+        - "node_modules/**"
+
+  - id: cevanex-reentrancy-cross-function
+    message: >
+      Cross-function reentrancy: a state variable read in one function may be
+      stale if another function modifies it after an external call. Audit all
+      functions that share mutable state with external-call-bearing functions.
+    severity: WARNING
+    languages: [generic]
+    metadata:
+      cwe: "CWE-841"
+      category: security
+      confidence: LOW
+      cevanex_tier: high
+    pattern-regex: "\\.call\\{|\\.(transfer|send)\\("
+    paths:
+      exclude:
+        - "*.test.sol"
+        - "test/**"
+        - "node_modules/**"
+
+  # -----------------------------------------------------------------------
+  # 2. INTEGER OVERFLOW / UNDERFLOW
+  # -----------------------------------------------------------------------
+  - id: cevanex-unchecked-arithmetic
+    message: >
+      Arithmetic in an `unchecked` block bypasses Solidity 0.8+ overflow protection.
+      Ensure the operation cannot overflow or underflow via invariant analysis.
+    severity: ERROR
+    languages: [generic]
+    metadata:
+      cwe: "CWE-190"
+      owasp: "A03:2021"
+      category: security
+      confidence: MEDIUM
+      cevanex_tier: high
+    pattern: |
+      unchecked {
+        ...
+        $A + $B
+        ...
+      }
+
+  - id: cevanex-pre-0-8-no-safemath
+    message: >
+      Contract targets Solidity <0.8.0 — arithmetic is unchecked by default.
+      Verify that SafeMath or equivalent is used for all uint operations.
+    severity: WARNING
+    languages: [generic]
+    metadata:
+      cwe: "CWE-190"
+      category: security
+      confidence: LOW
+      cevanex_tier: medium
+    pattern-regex: "pragma solidity \\^?0\\.[0-7]\\."
+
+  # -----------------------------------------------------------------------
+  # 3. ACCESS CONTROL
+  # -----------------------------------------------------------------------
+  - id: cevanex-unprotected-selfdestruct
+    message: >
+      `selfdestruct` is callable without explicit access control. Any caller
+      can destroy the contract and sweep remaining ETH to an arbitrary address.
+    severity: ERROR
+    languages: [generic]
+    metadata:
+      cwe: "CWE-284"
+      owasp: "A01:2021"
+      category: security
+      confidence: HIGH
+      cevanex_tier: critical
+    pattern-regex: "function\\s+\\w+\\s*\\([^)]*\\)\\s+(public|external)[^{]*\\{[^}]*selfdestruct\\s*\\("
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  - id: cevanex-tx-origin-auth
+    message: >
+      `tx.origin` used for authentication. A phishing contract can relay calls
+      on behalf of the victim. Use `msg.sender` for access control.
+    severity: ERROR
+    languages: [generic]
+    metadata:
+      cwe: "CWE-807"
+      owasp: "A07:2021"
+      category: security
+      confidence: HIGH
+      cevanex_tier: high
+    patterns:
+      - pattern: "require(tx.origin == $X, ...)"
+      - pattern: "require(tx.origin == $X)"
+      - pattern: |
+          if (tx.origin != $X) { ... }
+      - pattern: |
+          if (tx.origin == $X) { ... }
+
+  - id: cevanex-privileged-no-access-control
+    message: >
+      Privileged function (withdraw, mint, burn, pause, upgrade, set*, change*)
+      is public/external without an access-control modifier. Anyone can call it.
+    severity: ERROR
+    languages: [generic]
+    metadata:
+      cwe: "CWE-284"
+      owasp: "A01:2021"
+      category: security
+      confidence: MEDIUM
+      cevanex_tier: critical
+    pattern-regex: "function\\s+(withdraw|mint|burn|pause|unpause|upgradeTo|setOwner|changeOwner|setAdmin|setFee|setPrice|emergencyWithdraw)\\s*\\([^)]*\\)\\s+(public|external)\\b"
+    pattern-not-regex: "(onlyOwner|onlyAdmin|onlyRole|onlyAuthorized|whenNotPaused|restricted|onlyGovernance|onlyKeeper|onlyGuardian|auth|requiresAuth|initializer)"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  - id: cevanex-missing-zero-address-check
+    message: >
+      Address parameter in a critical setter (owner, admin, token, vault) is not
+      validated against address(0). Setting a zero address can permanently lock
+      funds or brick the contract.
+    severity: WARNING
+    languages: [generic]
+    metadata:
+      cwe: "CWE-20"
+      category: security
+      confidence: MEDIUM
+      cevanex_tier: medium
+    pattern-regex: "function\\s+(setOwner|transferOwnership|setAdmin|setVault|setToken|setOracle|setReceiver|setTreasury)\\s*\\(\\s*address\\s+\\w+"
+    pattern-not-regex: "require\\s*\\([^)]*!=\\s*address\\(0\\)"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  # -----------------------------------------------------------------------
+  # 4. DELEGATECALL / PROXY / UPGRADE
+  # -----------------------------------------------------------------------
+  - id: cevanex-delegatecall-user-input
+    message: >
+      `delegatecall` target or calldata is derived from user-controlled input.
+      An attacker can redirect execution to an arbitrary contract, overwrite
+      storage, or drain funds.
+    severity: ERROR
+    languages: [generic]
+    metadata:
+      cwe: "CWE-829"
+      owasp: "A03:2021"
+      category: security
+      confidence: HIGH
+      cevanex_tier: critical
+    patterns:
+      - pattern: "$ADDR.delegatecall($INPUT)"
+      - pattern: |
+          function $F(address $ADDR, ...) ... {
+            ...
+            $ADDR.delegatecall(...);
+            ...
+          }
+      - pattern: |
+          function $F(..., bytes $DATA) ... {
+            ...
+            $TARGET.delegatecall($DATA);
+            ...
+          }
+
+  - id: cevanex-uninitialized-implementation
+    message: >
+      Proxy implementation contract may not have called `_disableInitializers()`
+      in its constructor. An attacker can call `initialize()` on the
+      implementation directly to hijack it.
+    severity: ERROR
+    languages: [generic]
+    metadata:
+      cwe: "CWE-665"
+      category: security
+      confidence: MEDIUM
+      cevanex_tier: critical
+    pattern-regex: "function\\s+initialize\\s*\\([^)]*\\)\\s+(public|external)\\s+initializer\\b"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  - id: cevanex-storage-collision-proxy
+    message: >
+      Proxy contract uses a storage slot that may collide with the implementation.
+      Use EIP-1967 storage slots or Diamond Storage pattern to avoid collisions.
+    severity: WARNING
+    languages: [generic]
+    metadata:
+      cwe: "CWE-665"
+      category: security
+      confidence: LOW
+      cevanex_tier: high
+    pattern-regex: "bytes32\\s+(private|internal)\\s+constant\\s+\\w+\\s*=\\s*keccak256"
+
+  # -----------------------------------------------------------------------
+  # 5. ORACLE & PRICE MANIPULATION
+  # -----------------------------------------------------------------------
+  - id: cevanex-oracle-no-staleness-check
+    message: >
+      Chainlink oracle `latestRoundData()` return value does not check
+      `updatedAt` for staleness. Stale prices can be exploited for arbitrage
+      or under-collateralized borrowing.
+    severity: ERROR
+    languages: [generic]
+    metadata:
+      cwe: "CWE-754"
+      category: security
+      confidence: HIGH
+      cevanex_tier: high
+    pattern-regex: "latestRoundData\\(\\)"
+    pattern-not-regex: "updatedAt|answeredInRound|roundId"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  - id: cevanex-spot-price-manipulation
+    message: >
+      Spot price read from an AMM pool (getReserves, slot0, balanceOf) used for
+      valuation or collateral calculation. Spot prices are trivially manipulable
+      via flash loans. Use TWAP or Chainlink oracles.
+    severity: ERROR
+    languages: [generic]
+    metadata:
+      cwe: "CWE-807"
+      category: security
+      confidence: MEDIUM
+      cevanex_tier: critical
+    pattern-regex: "(getReserves|slot0|observe\\(|consult\\(|price0CumulativeLast|price1CumulativeLast|balanceOf\\([^)]+\\)\\s*\\*)"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+        - "**/libraries/**"
+
+  - id: cevanex-oracle-single-source
+    message: >
+      Contract relies on a single oracle source without a fallback mechanism.
+      If the oracle goes down or is compromised, the contract becomes vulnerable.
+      Consider using multiple oracle sources with a median or fallback pattern.
+    severity: WARNING
+    languages: [generic]
+    metadata:
+      cwe: "CWE-754"
+      category: security
+      confidence: LOW
+      cevanex_tier: medium
+    pattern-regex: "priceFeed\\.latestRoundData\\(\\)|oracle\\.getPrice\\("
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  # -----------------------------------------------------------------------
+  # 6. FLASH LOAN
+  # -----------------------------------------------------------------------
+  - id: cevanex-flash-loan-callback-unvalidated
+    message: >
+      Flash loan callback (onFlashLoan / executeOperation / receiveFlashLoan)
+      does not validate the initiator or msg.sender. An attacker can trigger
+      the callback directly to manipulate state or drain funds.
+    severity: ERROR
+    languages: [generic]
+    metadata:
+      cwe: "CWE-400"
+      owasp: "A01:2021"
+      category: security
+      confidence: MEDIUM
+      cevanex_tier: critical
+    pattern-regex: "function\\s+(onFlashLoan|executeOperation|receiveFlashLoan|flashLoanCallback)\\s*\\("
+    pattern-not-regex: "require\\s*\\(\\s*(msg\\.sender|_initiator|initiator)\\s*==\\s*(address\\(this\\)|\\w+Pool|\\w+Lender)"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  # -----------------------------------------------------------------------
+  # 7. SIGNATURE / REPLAY
+  # -----------------------------------------------------------------------
+  - id: cevanex-ecrecover-no-nonce
+    message: >
+      `ecrecover` used without nonce, deadline, or chain ID in the signed hash.
+      Signatures can be replayed across transactions or chains. Use EIP-712
+      typed data with domain separator and nonce.
+    severity: ERROR
+    languages: [generic]
+    metadata:
+      cwe: "CWE-294"
+      owasp: "A07:2021"
+      category: security
+      confidence: MEDIUM
+      cevanex_tier: high
+    pattern-regex: "ecrecover\\s*\\("
+    pattern-not-regex: "(nonce|deadline|chainId|DOMAIN_SEPARATOR|_domainSeparatorV4)"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  - id: cevanex-signature-malleability
+    message: >
+      Raw `ecrecover` is vulnerable to signature malleability (s-value flipping).
+      Use OpenZeppelin ECDSA.recover() which normalizes the s-value to the lower
+      half-order, preventing duplicate valid signatures.
+    severity: WARNING
+    languages: [generic]
+    metadata:
+      cwe: "CWE-347"
+      category: security
+      confidence: MEDIUM
+      cevanex_tier: medium
+    pattern: "ecrecover($HASH, $V, $R, $S)"
+    pattern-not-regex: "ECDSA\\.recover|SignatureChecker"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  # -----------------------------------------------------------------------
+  # 8. DENIAL OF SERVICE
+  # -----------------------------------------------------------------------
+  - id: cevanex-unbounded-loop
+    message: >
+      Loop iterates over a storage array with no upper bound. If the array grows
+      large, the function will exceed the block gas limit and become uncallable,
+      potentially locking funds permanently.
+    severity: ERROR
+    languages: [generic]
+    metadata:
+      cwe: "CWE-400"
+      category: security
+      confidence: MEDIUM
+      cevanex_tier: high
+    pattern-regex: "for\\s*\\(\\s*uint\\w*\\s+\\w+\\s*=\\s*0\\s*;\\s*\\w+\\s*<\\s*\\w+\\.length\\s*;"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  - id: cevanex-dos-external-call-in-loop
+    message: >
+      External call inside a loop. If one recipient reverts (e.g., a contract
+      without a receive function), the entire batch fails. Use a pull-over-push
+      pattern or skip failed transfers.
+    severity: ERROR
+    languages: [generic]
+    metadata:
+      cwe: "CWE-400"
+      category: security
+      confidence: HIGH
+      cevanex_tier: high
+    pattern-regex: "for\\s*\\([^)]+\\)\\s*\\{[^}]*(transfer|call\\{value|send)\\("
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  - id: cevanex-block-gas-limit-array-push
+    message: >
+      Unbounded `push()` to a storage array that is later iterated. This pattern
+      creates a gas-limit denial-of-service vector. Consider using a mapping with
+      a counter, or limiting array size.
+    severity: WARNING
+    languages: [generic]
+    metadata:
+      cwe: "CWE-400"
+      category: security
+      confidence: LOW
+      cevanex_tier: medium
+    pattern-regex: "\\.push\\("
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+        - "**/libraries/**"
+
+  # -----------------------------------------------------------------------
+  # 9. ERC TOKEN PITFALLS
+  # -----------------------------------------------------------------------
+  - id: cevanex-erc20-approve-race
+    message: >
+      ERC20 `approve` is called without first setting allowance to 0. The
+      approve/transferFrom race condition allows a spender to front-run and
+      spend both the old and new allowance. Use `safeIncreaseAllowance`.
+    severity: WARNING
+    languages: [generic]
+    metadata:
+      cwe: "CWE-367"
+      category: security
+      confidence: MEDIUM
+      cevanex_tier: medium
+    pattern-regex: "\\.approve\\s*\\(\\s*\\w+\\s*,\\s*\\w+"
+    pattern-not-regex: "(safeApprove|safeIncreaseAllowance|forceApprove|approve\\([^,]+,\\s*0\\))"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  - id: cevanex-erc20-fee-on-transfer
+    message: >
+      Token transfer amount is assumed to equal the received amount. Fee-on-transfer
+      or rebasing tokens will cause accounting discrepancies. Measure the actual
+      balance change: `balanceAfter - balanceBefore`.
+    severity: WARNING
+    languages: [generic]
+    metadata:
+      cwe: "CWE-682"
+      category: security
+      confidence: LOW
+      cevanex_tier: medium
+    pattern-regex: "transferFrom\\s*\\([^)]+\\)\\s*;[^}]*\\+[=]\\s*\\w+amount"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  - id: cevanex-erc721-reentrancy-safemint
+    message: >
+      `_safeMint` or `safeTransferFrom` triggers `onERC721Received` callback on
+      the recipient. If the recipient is a malicious contract, it can re-enter
+      the minting function. Apply nonReentrant or mint before external interaction.
+    severity: WARNING
+    languages: [generic]
+    metadata:
+      cwe: "CWE-841"
+      category: security
+      confidence: MEDIUM
+      cevanex_tier: high
+    pattern-regex: "_safeMint\\s*\\(|safeTransferFrom\\s*\\("
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  # -----------------------------------------------------------------------
+  # 10. FRONT-RUNNING / MEV
+  # -----------------------------------------------------------------------
+  - id: cevanex-no-slippage-protection
+    message: >
+      Swap or liquidity operation has `amountOutMin` set to 0 or is missing
+      slippage protection entirely. Sandwich bots will extract maximum MEV
+      from this transaction.
+    severity: ERROR
+    languages: [generic]
+    metadata:
+      cwe: "CWE-682"
+      category: security
+      confidence: HIGH
+      cevanex_tier: high
+    pattern-regex: "(amountOutMin|minAmountOut|minimumOut)\\s*[:,=]\\s*0[^0-9]"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  - id: cevanex-no-deadline-swap
+    message: >
+      DEX swap or router call without a deadline parameter. A pending transaction
+      can be held by a validator and executed at a later, unfavorable price.
+      Always pass `block.timestamp + delta` as deadline.
+    severity: WARNING
+    languages: [generic]
+    metadata:
+      cwe: "CWE-367"
+      category: security
+      confidence: MEDIUM
+      cevanex_tier: medium
+    pattern-regex: "(swapExactTokensFor|swapTokensForExact|addLiquidity|removeLiquidity)\\w*\\([^)]*type\\(uint\\d*\\)\\.max"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  # -----------------------------------------------------------------------
+  # 11. MISCELLANEOUS HIGH-IMPACT
+  # -----------------------------------------------------------------------
+  - id: cevanex-hardcoded-secret
+    message: >
+      Hardcoded private key, mnemonic, or secret detected in contract source.
+      Rotate the key immediately and use environment variables or a secure vault.
+    severity: ERROR
+    languages: [generic]
+    metadata:
+      cwe: "CWE-798"
+      owasp: "A07:2021"
+      category: security
+      confidence: HIGH
+      cevanex_tier: critical
+    pattern-regex: '(private[_ ]?key|secret|mnemonic)\s*=\s*["'']0x[0-9a-fA-F]{32,}'
+
+  - id: cevanex-unchecked-low-level-call
+    message: >
+      Return value of low-level `call`, `send`, or `delegatecall` is not checked.
+      A failed call will silently continue execution, potentially causing
+      loss of funds. Use `require(success, ...)`.
+    severity: WARNING
+    languages: [generic]
+    metadata:
+      cwe: "CWE-252"
+      owasp: "A03:2021"
+      category: security
+      confidence: MEDIUM
+      cevanex_tier: high
+    patterns:
+      - pattern: |
+          $ADDR.call($DATA);
+      - pattern: |
+          $ADDR.send($AMT);
+    pattern-not: |
+      (bool $SUCCESS, ...) = $ADDR.call(...);
+
+  - id: cevanex-timestamp-dependence
+    message: >
+      `block.timestamp` used for randomness, critical time-locks, or auction
+      deadlines. Validators can manipulate timestamps within the allowed drift
+      window. Avoid using it for sensitive logic.
+    severity: WARNING
+    languages: [generic]
+    metadata:
+      cwe: "CWE-829"
+      owasp: "A02:2021"
+      category: security
+      confidence: MEDIUM
+      cevanex_tier: medium
+    patterns:
+      - pattern: "block.timestamp % $N"
+      - pattern: "uint($SEED) % $N == 0"
+      - pattern: |
+          require(block.timestamp >= $UNLOCK);
+      - pattern: |
+          if (block.timestamp > $DEADLINE) { ... }
+
+  - id: cevanex-arbitrary-token-from
+    message: >
+      `transferFrom` with a user-supplied `from` address. If the function does
+      not verify that `msg.sender == from`, an attacker can spend approved tokens
+      belonging to any address that has granted allowance to this contract.
+    severity: ERROR
+    languages: [generic]
+    metadata:
+      cwe: "CWE-284"
+      category: security
+      confidence: HIGH
+      cevanex_tier: critical
+    pattern-regex: "transferFrom\\s*\\(\\s*\\w+from\\w*\\s*,"
+    pattern-not-regex: "require\\s*\\(\\s*msg\\.sender\\s*==\\s*\\w*from|msg\\.sender\\s*==\\s*_?from"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  - id: cevanex-division-before-multiplication
+    message: >
+      Division performed before multiplication causes precision loss due to
+      integer truncation. Reorder to multiply first, then divide, to preserve
+      maximum precision.
+    severity: WARNING
+    languages: [generic]
+    metadata:
+      cwe: "CWE-682"
+      category: security
+      confidence: LOW
+      cevanex_tier: medium
+    pattern-regex: "\\/ \\w+ \\* \\w+|\\/ \\d+ \\* \\d+"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+        - \"**/libraries/**\"
+
+  # -----------------------------------------------------------------------
+  # 12. UNSAFE CASTING & TYPE SAFETY
+  # -----------------------------------------------------------------------
+  - id: cevanex-unsafe-downcast
+    message: >
+      Unsafe downcast from uint256 to a smaller type (uint128, uint96, uint64,
+      etc.) without overflow check. If the value exceeds the target type's max,
+      it silently truncates, causing critical accounting errors. Use
+      OpenZeppelin SafeCast or explicit bounds checking.
+    severity: ERROR
+    languages: [generic]
+    metadata:
+      cwe: "CWE-681"
+      category: security
+      confidence: HIGH
+      cevanex_tier: high
+    pattern-regex: "uint(128|96|64|48|32|16|8)\\s*\\(\\s*\\w+\\s*\\)"
+    pattern-not-regex: "(SafeCast|toUint128|toUint96|toUint64|toUint32|toUint16|toUint8)"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  - id: cevanex-unsafe-int-to-uint
+    message: >
+      Casting from signed int to unsigned uint (or vice versa) without checking
+      for negative values. A negative int cast to uint becomes a very large
+      number, causing catastrophic accounting errors.
+    severity: ERROR
+    languages: [generic]
+    metadata:
+      cwe: "CWE-681"
+      category: security
+      confidence: MEDIUM
+      cevanex_tier: high
+    pattern-regex: "uint256\\s*\\(\\s*int256|int256\\s*\\(\\s*uint256"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  # -----------------------------------------------------------------------
+  # 13. CENTRALIZATION & GOVERNANCE
+  # -----------------------------------------------------------------------
+  - id: cevanex-single-admin-key
+    message: >
+      Contract has a single owner/admin address that can unilaterally execute
+      privileged operations (pause, upgrade, drain). A compromised key means
+      total loss. Consider timelock, multisig, or governance voting.
+    severity: WARNING
+    languages: [generic]
+    metadata:
+      cwe: "CWE-284"
+      category: security
+      confidence: LOW
+      cevanex_tier: medium
+    pattern-regex: "(Ownable|onlyOwner|owner\\(\\))(?!.*[Mm]ulti[Ss]ig|.*[Tt]imelock|.*[Gg]overnor)"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  - id: cevanex-governance-flash-loan
+    message: >
+      Governance voting power is based on current token balance without a
+      snapshot mechanism. An attacker can flash-loan tokens to gain temporary
+      voting majority, pass a malicious proposal, and repay in the same block.
+      Use ERC20Votes / ERC20Snapshot for voting power.
+    severity: ERROR
+    languages: [generic]
+    metadata:
+      cwe: "CWE-807"
+      category: security
+      confidence: MEDIUM
+      cevanex_tier: critical
+    pattern-regex: "balanceOf\\s*\\([^)]+\\)\\s*[><=]+.*quorum|votingPower.*balanceOf"
+    pattern-not-regex: "(getVotes|getPastVotes|getPriorVotes|_snapshot|checkpoints)"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  - id: cevanex-no-timelock-critical
+    message: >
+      Critical admin function (setFee, setOracle, setImplementation) executes
+      immediately without a timelock delay. Users cannot react to malicious
+      changes. Add a minimum delay (e.g., 48 hours) for critical parameters.
+    severity: WARNING
+    languages: [generic]
+    metadata:
+      cwe: "CWE-284"
+      category: security
+      confidence: LOW
+      cevanex_tier: medium
+    pattern-regex: "function\\s+(setFee|setOracle|setImplementation|setStrategy|setRewardRate|setCollateralFactor)\\s*\\("
+    pattern-not-regex: "(timelock|TimelockController|delay|pendingAdmin|acceptAdmin)"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  # -----------------------------------------------------------------------
+  # 14. UPGRADEABLE CONTRACTS
+  # -----------------------------------------------------------------------
+  - id: cevanex-missing-storage-gap
+    message: >
+      Upgradeable contract inherits from a base without a `__gap` storage
+      reservation. Future base contract upgrades that add new state variables
+      will collide with child contract storage, corrupting data.
+    severity: WARNING
+    languages: [generic]
+    metadata:
+      cwe: "CWE-665"
+      category: security
+      confidence: MEDIUM
+      cevanex_tier: high
+    pattern-regex: "(Upgradeable|UUPSUpgradeable|TransparentUpgradeableProxy|ERC1967)"
+    pattern-not-regex: "__gap|uint256\\[\\d+\\]\\s+(private|internal)\\s+__gap"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  - id: cevanex-constructor-in-upgradeable
+    message: >
+      Upgradeable contract uses a `constructor` which only runs on the
+      implementation, not on proxy clones. State set in the constructor
+      will be absent in proxies. Move initialization logic to an
+      `initialize()` function with the `initializer` modifier.
+    severity: ERROR
+    languages: [generic]
+    metadata:
+      cwe: "CWE-665"
+      category: security
+      confidence: MEDIUM
+      cevanex_tier: high
+    pattern-regex: "constructor\\s*\\([^)]*\\)\\s*\\{[^}]+(=|\\[)"
+    paths:
+      include:
+        - "*Upgradeable*"
+        - "*Proxy*"
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  # -----------------------------------------------------------------------
+  # 15. CROSS-CHAIN & BRIDGE
+  # -----------------------------------------------------------------------
+  - id: cevanex-cross-chain-no-source-check
+    message: >
+      Cross-chain message receiver does not validate the source chain ID
+      or sender address. An attacker can send a forged message from an
+      unauthorized chain or contract to trigger privileged operations.
+    severity: ERROR
+    languages: [generic]
+    metadata:
+      cwe: "CWE-284"
+      category: security
+      confidence: MEDIUM
+      cevanex_tier: critical
+    pattern-regex: "(onMessageReceived|_nonblockingLzReceive|sgReceive|_ccipReceive|anyExecute|xDomainMessageSender)\\s*\\("
+    pattern-not-regex: "(require.*sourceChain|require.*srcChainId|require.*trustedRemote|_checkSender|onlyRelayer)"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  - id: cevanex-bridge-no-replay-protection
+    message: >
+      Bridge message processing does not mark messages as consumed after
+      execution. The same message can be replayed to execute the action
+      multiple times (e.g., double-mint, double-unlock).
+    severity: ERROR
+    languages: [generic]
+    metadata:
+      cwe: "CWE-294"
+      category: security
+      confidence: MEDIUM
+      cevanex_tier: critical
+    pattern-regex: "(executeMessage|processMessage|claimTokens|relayMessage)\\s*\\("
+    pattern-not-regex: "(processed|executed|consumed|claimed|usedNonces|messageHash.*true|nonceUsed)"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  # -----------------------------------------------------------------------
+  # 16. GAS & RETURNDATA SAFETY
+  # -----------------------------------------------------------------------
+  - id: cevanex-returndata-bomb
+    message: >
+      Low-level `.call()` copies all returndata to memory. A malicious
+      contract can return megabytes of data, causing an out-of-gas revert
+      in the caller (returndata bomb / gas griefing). Use `excessivelySafeCall`
+      or limit the amount of returndata copied.
+    severity: WARNING
+    languages: [generic]
+    metadata:
+      cwe: "CWE-400"
+      category: security
+      confidence: LOW
+      cevanex_tier: medium
+    pattern-regex: "(bool\\s+\\w+\\s*,\\s*bytes\\s+memory\\s+\\w+)\\s*=\\s*\\w+\\.call"
+    pattern-not-regex: "(excessivelySafeCall|assembly.*returndatasize)"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  - id: cevanex-hardcoded-gas-limit
+    message: >
+      Hardcoded gas value in `.call{gas: N}()` or `gasleft() - N`. Gas costs
+      change across EVM hard forks (e.g., EIP-2929 doubled SLOAD cost).
+      Avoid hardcoding gas; use `gasleft()` or relay the full remaining gas.
+    severity: WARNING
+    languages: [generic]
+    metadata:
+      cwe: "CWE-1187"
+      category: security
+      confidence: MEDIUM
+      cevanex_tier: medium
+    pattern-regex: "\\.call\\{.*gas:\\s*\\d+|gasleft\\(\\)\\s*-\\s*\\d+"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  - id: cevanex-erc777-hook-reentrancy
+    message: >
+      Contract interacts with an ERC777-compatible token without reentrancy
+      protection. ERC777 tokens trigger `tokensReceived` / `tokensToSend`
+      hooks on transfer, enabling reentrancy even through standard ERC20
+      interfaces. This was the attack vector in the imBTC Uniswap hack.
+    severity: ERROR
+    languages: [generic]
+    metadata:
+      cwe: "CWE-841"
+      category: security
+      confidence: LOW
+      cevanex_tier: high
+    pattern-regex: "(IERC777|tokensReceived|tokensToSend|ERC1820)"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  # -----------------------------------------------------------------------
+  # 17. MISSING EVENTS & LOGGING
+  # -----------------------------------------------------------------------
+  - id: cevanex-missing-event-critical-setter
+    message: >
+      Critical state change (owner, admin, fee, oracle, implementation)
+      does not emit an event. Off-chain monitoring systems and users
+      cannot detect or react to the change. Emit an event for every
+      privileged state modification.
+    severity: WARNING
+    languages: [generic]
+    metadata:
+      cwe: "CWE-778"
+      category: security
+      confidence: LOW
+      cevanex_tier: low
+    pattern-regex: "function\\s+(setOwner|transferOwnership|setAdmin|setFee|setOracle|upgradeTo|pause|unpause)\\s*\\([^)]*\\)[^}]*\\}"
+    pattern-not-regex: "emit\\s+\\w+"
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"
+
+  # -----------------------------------------------------------------------
+  # 18. CREATE2 & METAMORPHIC
+  # -----------------------------------------------------------------------
+  - id: cevanex-create2-metamorphic
+    message: >
+      `CREATE2` combined with `SELFDESTRUCT` enables metamorphic contracts:
+      a contract can be destroyed and redeployed at the same address with
+      different bytecode, breaking trust assumptions. Verify that create2-
+      deployed contracts cannot selfdestruct.
+    severity: ERROR
+    languages: [generic]
+    metadata:
+      cwe: "CWE-665"
+      category: security
+      confidence: MEDIUM
+      cevanex_tier: critical
+    pattern-regex: "(create2|CREATE2)\\s*\\("
+    paths:
+      exclude:
+        - "test/**"
+        - "node_modules/**"

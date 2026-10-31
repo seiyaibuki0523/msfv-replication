@@ -1,0 +1,68 @@
+{
+ "signal_key": {
+  "I": "identity (檔名+函式名)",
+  "S": "source code",
+  "C": "concern",
+  "P": "PoC verdict"
+ },
+ "configs": {
+  "full": "I,S,C,P",
+  "noidentity": "S,C,P",
+  "noconcern": "I,S,P",
+  "nosource": "I,C,P",
+  "nopoc": "I,S,C",
+  "keep_IS": "I,S",
+  "keep_IC": "I,C",
+  "keep_IP": "I,P",
+  "keep_SC": "S,C",
+  "keep_SP": "S,P",
+  "keep_CP": "C,P",
+  "only_I": "I",
+  "only_S": "S",
+  "only_C": "C",
+  "only_P": "P",
+  "noconcern_full": "I,S,P"
+ },
+ "hard_rules": [
+  "每個 (detection_model, benchmark, seed) 只跑 detection 一次；所有 verification config 吃同一份候選池（source_pool）",
+  "絕不為了不同 config 重跑 detection —— 會破壞 config 間的配對",
+  "prompt 模板固定，config 之間只抽換 signals 欄位列出的訊號，其他字句完全相同",
+  "SmartBugs 的 PoC 實測 1161 emitted / 0 compiled，含 P 的 config 已從表中移除",
+  "不沿用舊 r1 資料：gemma/smartbugs r1 raw=890 vs r2=329、nemotron/pygoat r1=61 vs r2=118，疑似截斷",
+  "run 目錄名須符合 ^st_(model)_(bench)_(rep)$，三欄內不得含底線；config 目錄名可含底線"
+ ],
+ "manifest_fields_per_run": [
+  "model_version_with_revision_or_quant",
+  "temperature",
+  "top_p",
+  "top_k",
+  "max_tokens",
+  "seed_param_or_nondeterminism_note",
+  "prompt_template_hash",
+  "tool_versions",
+  "timestamp"
+ ],
+ "per_finding_logging_required": [
+  "每個訊號的個別判定",
+  "最終 verdict",
+  "severity_override",
+  "poc 狀態(emit/compile/triggered)"
+ ],
+ "execution_order": [
+  "階段1: tier=1 且 stage=detection（60，依 benchmark 並行）",
+  "階段2: tier=1 且 stage=verification（285）",
+  "階段3: tier=2（180，可與階段2 並行）",
+  "階段4: tier=4（24，可與階段2 並行）",
+  "階段5: tier=3 且 optional=no（72，需階段1 的 seed 1-3）",
+  "階段6: tier=5（20，任意時間）",
+  "（選配）tier=3 且 optional=yes（36）—— 僅在階段5 三個 verifier 結果過於接近時才跑"
+ ],
+ "compute_fallback": "算力不足時只降 seed：gemma/nemotron 降到 seed 1-3，qwen 維持 1-5。不可降 config 數。",
+ "optional_column": "optional=no 為必跑集合；optional=yes 目前只有 tier 3 的 EXTERNAL-FAMILY (vext) 36 個 job，先不跑",
+ "tier3_purpose": [
+  "凍結 qwen 候選池，只換 verification 模型 -> R2-5 要的 controlled cross-model",
+  "gemma/qwen/Nemotron 已是 Google/Alibaba/NVIDIA 三個不同家族，cross-family 已滿足",
+  "同時檢驗 §IV-A 的設計理由：verification 是否真的需要較強的模型",
+  "只有在三個 verifier 結果靠得異常近時，才補 EXTERNAL-FAMILY 第四個"
+ ]
+}

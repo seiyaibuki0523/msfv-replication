@@ -1,0 +1,52 @@
+# Polyglot PoC sandbox image (Layer 4.5 multi-language PoC executor).
+#
+# One image with the toolchains the LLM-emitted execution recipe may invoke.
+# Self-contained PoCs (import the vulnerable function, feed a benign payload,
+# assert the exploit) run here — no network, ephemeral container, destroyed
+# after each run (see core/analysis/poc_sandbox.py).
+#
+# Solidity is deliberately NOT here: forge PoCs need the target repo's
+# foundry deps, so they keep running via the existing host-forge path.
+# This image covers the self-contained languages: C/C++ (+sanitizers),
+# Python, JavaScript/TypeScript (node), Go, Rust.
+#
+# Build:  docker build -f docker/Dockerfile.poc-sandbox -t cevanex/poc-sandbox:1 .
+# Size:   ~1.2GB. One-time build; each PoC run is a fast `docker run`.
+
+FROM debian:bookworm-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Toolchains:
+#   clang + g++  → C/C++ with -fsanitize=address,undefined (the C/C++ oracle)
+#   python3      → Python PoCs
+#   nodejs       → JS/TS PoCs
+#   golang       → Go PoCs (go run, -race)
+#   rustc/cargo  → Rust PoCs
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        clang \
+        g++ \
+        make \
+        python3 \
+        nodejs \
+        golang \
+        rustc \
+        cargo \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Unprivileged user — PoCs never need root. Combined with --network none and
+# the read-only rootfs + single writable /poc mount, this keeps a generated
+# PoC boxed in even before resource limits.
+RUN useradd --create-home --uid 10001 poc
+USER poc
+WORKDIR /poc
+
+# Go/Rust offline: PoCs are single-file, no module fetches (no network anyway).
+ENV GOFLAGS=-mod=mod \
+    GOPROXY=off \
+    CARGO_NET_OFFLINE=true \
+    HOME=/home/poc
+
+# Default command is overridden per-run by `sh -c "<build> && <run>"`.
+CMD ["sh", "-c", "echo poc-sandbox ready"]

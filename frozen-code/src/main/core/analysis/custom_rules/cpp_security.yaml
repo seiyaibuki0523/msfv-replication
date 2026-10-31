@@ -1,0 +1,218 @@
+rules:
+  # ─────────────────────────────────────────────────────────────────────
+  # Integer overflow / underflow — critical for financial code
+  # ─────────────────────────────────────────────────────────────────────
+  - id: cpp-unchecked-integer-arithmetic-on-amount
+    message: >-
+      Arithmetic on monetary/amount variable without overflow check. In 64-bit
+      fixed-point arithmetic (XRPL uint64), multiplication or addition can wrap
+      silently. Use safe arithmetic (mulDiv, checked ops) or explicit bounds.
+    severity: ERROR
+    languages: [cpp, c]
+    metadata:
+      cwe: CWE-190
+      category: security
+    patterns:
+      - pattern-either:
+          - pattern: $A * $B
+          - pattern: $A + $B
+          - pattern: $A - $B
+      - metavariable-regex:
+          metavariable: $A
+          regex: ".*([Aa]mount|[Bb]alance|[Ff]ee|[Rr]eserve|[Ss]upply|[Ss]ponsor).*"
+
+  - id: cpp-narrowing-cast-on-amount
+    message: >-
+      Narrowing cast on amount/balance. Casting uint64 to uint32/int32 on
+      monetary values can truncate silently. Validate range first.
+    severity: ERROR
+    languages: [cpp, c]
+    metadata:
+      cwe: CWE-197
+    patterns:
+      - pattern-either:
+          - pattern: static_cast<uint32_t>($X)
+          - pattern: static_cast<int32_t>($X)
+          - pattern: static_cast<int>($X)
+          - pattern: (uint32_t)$X
+          - pattern: (int)$X
+      - metavariable-regex:
+          metavariable: $X
+          regex: ".*([Aa]mount|[Bb]alance|[Ff]ee|[Ss]upply).*"
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Memory safety
+  # ─────────────────────────────────────────────────────────────────────
+  - id: cpp-unchecked-memcpy
+    message: >-
+      memcpy/memmove without explicit size validation. Length must come from
+      a validated bound, not from untrusted input.
+    severity: WARNING
+    languages: [cpp, c]
+    metadata:
+      cwe: CWE-120
+    pattern-either:
+      - pattern: memcpy($DST, $SRC, $LEN)
+      - pattern: memmove($DST, $SRC, $LEN)
+      - pattern: std::memcpy($DST, $SRC, $LEN)
+
+  - id: cpp-strcpy-strcat-unsafe
+    message: strcpy/strcat are unsafe — use strncpy/strncat or std::string.
+    severity: ERROR
+    languages: [cpp, c]
+    metadata:
+      cwe: CWE-120
+    pattern-either:
+      - pattern: strcpy($X, $Y)
+      - pattern: strcat($X, $Y)
+      - pattern: sprintf($X, ...)
+      - pattern: gets($X)
+
+  - id: cpp-raw-new-delete
+    message: >-
+      Raw new/delete without RAII. Prefer std::unique_ptr / std::make_unique
+      to prevent leaks on exception paths.
+    severity: INFO
+    languages: [cpp]
+    pattern-either:
+      - pattern: new $T[...]
+      - pattern: delete $X
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Signature / cryptography
+  # ─────────────────────────────────────────────────────────────────────
+  - id: cpp-weak-random
+    message: rand()/srand() are not cryptographically secure — use a CSPRNG.
+    severity: WARNING
+    languages: [cpp, c]
+    metadata:
+      cwe: CWE-338
+    pattern-either:
+      - pattern: rand()
+      - pattern: srand($X)
+      - pattern: std::rand()
+
+  - id: cpp-missing-signature-verify
+    message: >-
+      Function name suggests signature/proof verification but may return true
+      on parse error. Verify failure path returns false explicitly.
+    severity: WARNING
+    languages: [cpp]
+    patterns:
+      - pattern-either:
+          - pattern: |
+              bool $F(...) {
+                ...
+                return true;
+              }
+          - pattern: |
+              bool $F(...) {
+                ...
+                return $X;
+              }
+      - metavariable-regex:
+          metavariable: $F
+          regex: "(verify|validate|check).*(Sig|Proof|Signature|Hash|Zkp|ZKP)"
+
+  # ─────────────────────────────────────────────────────────────────────
+  # XRPL / rippled specific
+  # ─────────────────────────────────────────────────────────────────────
+  - id: cpp-ter-result-ignored
+    message: >-
+      TER result from view.peek/update/insert ignored. XRPL ledger writes
+      must check the tecXXX / terXXX result code before continuing.
+    severity: ERROR
+    languages: [cpp]
+    pattern-either:
+      - pattern: view.peek($KEY);
+      - pattern: view.update($SLE);
+      - pattern: view.insert($SLE);
+      - pattern: sb.update($SLE);
+
+  - id: cpp-missing-preflight-check
+    message: >-
+      Transactor function modifies SLE without calling preflight checks.
+      preflight() must validate fields before doApply() runs.
+    severity: WARNING
+    languages: [cpp]
+    patterns:
+      - pattern: |
+          TER $CLASS::doApply() {
+            ...
+          }
+      - pattern-not-inside: |
+          NotTEC $CLASS::preflight(...) {
+            ...
+          }
+
+  - id: cpp-feature-not-gated
+    message: >-
+      Transactor code path not gated by amendment check. New features must
+      check rules().enabled(featureName) before executing.
+    severity: WARNING
+    languages: [cpp]
+    patterns:
+      - pattern-either:
+          - pattern: |
+              if (tx.getTxnType() == tt$NEW) {
+                ...
+              }
+      - pattern-not: |
+          if (!ctx.rules.enabled($FEAT)) { ... }
+          ...
+
+  - id: cpp-invariant-not-enforced
+    message: >-
+      Invariant check function body missing JLOG or fatal return. Failed
+      invariants should log and return false/tecINVARIANT_FAILED.
+    severity: WARNING
+    languages: [cpp]
+    patterns:
+      - pattern: |
+          bool $F::finalize(...) {
+            ...
+            return true;
+          }
+      - metavariable-regex:
+          metavariable: $F
+          regex: ".*(Invariant|Check).*"
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Concurrency
+  # ─────────────────────────────────────────────────────────────────────
+  - id: cpp-lock-not-scoped
+    message: >-
+      Raw mutex.lock()/unlock() without RAII. Use std::lock_guard or
+      std::scoped_lock to ensure unlock on exception paths.
+    severity: WARNING
+    languages: [cpp]
+    pattern-either:
+      - pattern: $M.lock();
+      - pattern: $M.unlock();
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Input validation
+  # ─────────────────────────────────────────────────────────────────────
+  - id: cpp-stoi-without-try
+    message: >-
+      std::stoi/stoll on user input without try/catch. Invalid input throws
+      std::invalid_argument or std::out_of_range.
+    severity: WARNING
+    languages: [cpp]
+    pattern-either:
+      - pattern: std::stoi($X)
+      - pattern: std::stoll($X)
+      - pattern: std::stoul($X)
+      - pattern: std::stoull($X)
+
+  - id: cpp-unvalidated-array-access
+    message: >-
+      Array subscript without bounds check. Prefer .at() or explicit
+      size validation before indexing with untrusted values.
+    severity: INFO
+    languages: [cpp]
+    patterns:
+      - pattern: $ARR[$IDX]
+      - metavariable-regex:
+          metavariable: $IDX
+          regex: ".*([Ii]ndex|[Ii]dx|[Ii]|[Pp]os|[Oo]ffset|[Ll]en).*"

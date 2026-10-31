@@ -1,0 +1,298 @@
+[
+ {
+  "id": "dvd-0070",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "src/curvy-puppet/CurvyPuppetLending.sol:48-59, src/curvy-puppet/CurvyPuppetLending.sol:61-83",
+  "justification": "withdraw() is nonReentrant and follows checks-effects-interactions (collateralAmount is written at line 57 before the transfer at line 58), so the asserted 'stale state read after an external call' data flow does not exist. The claimed bypass is also logically inverted: the guard is `if (borrowValue * 175 > remainingCollateralValue * 100) revert`, so an inflated borrowAmount makes the call revert rather than pass."
+ },
+ {
+  "id": "dvd-0042",
+  "label": "FALSE",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "src/DamnValuableStaking.sol:73-81, src/DamnValuableStaking.sol:11, src/DamnValuableToken.sol:6-10",
+  "justification": "claim() deletes rewards[msg.sender] (line 77) before token.transfer (line 78), so the reward slot cannot be re-read stale during the call, and `token` is an immutable plain solmate ERC20 (DamnValuableToken) with no transfer hooks, so no callback window exists at all."
+ },
+ {
+  "id": "dvd-0014",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "src/free-rider/FreeRiderNFTMarketplace.sol:83-89, src/free-rider/FreeRiderNFTMarketplace.sol:91-111",
+  "justification": "The loop exists but iterates a caller-supplied calldata array, not a storage array, so any gas exhaustion is confined to the attacker's own transaction; buyMany stays callable with normal-sized arrays and nothing is locked. The claim that a mid-loop out-of-gas leaves offersCount decremented is wrong — the whole transaction reverts."
+ },
+ {
+  "id": "dvd-0073",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "src/shards/ShardsFeeVault.sol:34-44, src/shards/ShardsFeeVault.sol:13-25",
+  "justification": "withdraw() is the vault's intended owner-only fee sweep and is correctly gated by onlyOwner; the described 'attack' presupposes theft of the owner key, so this is an admin-key/governance best-practice observation with no code weakness or attacker-reachable path."
+ },
+ {
+  "id": "dvd-0081",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "src/shards/ShardsFeeVault.sol:46-50",
+  "justification": "enableStaking is owner-gated by design and the max approval it grants is to the staking contract the owner deliberately configures; exploitation requires prior compromise of the owner key, making this an admin-key hardening note rather than an exploitable flaw."
+ },
+ {
+  "id": "dvd-0008",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "src/abi-smuggling/SelfAuthorizedVault.sol:20-25, src/abi-smuggling/SelfAuthorizedVault.sol:13, src/abi-smuggling/SelfAuthorizedVault.sol:33-45, src/abi-smuggling/AuthorizedExecutor.sol:46-61",
+  "justification": "Every load-bearing assertion is wrong: withdraw IS reached internally (execute() does target.functionCall with target forced to address(this)), selfdestruct cannot make msg.sender equal address(this), and _lastWithdrawalTimestamp is initialized to block.timestamp at declaration (line 13), so the waiting period cannot start at zero. The file's real weakness is the fixed calldata offset for the selector in execute(), which this claim does not describe."
+ },
+ {
+  "id": "dvd-0024",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "src/the-rewarder/TheRewarderDistributor.sol:71-78",
+  "justification": "clean() loops over a caller-supplied calldata array, so an oversized array only exhausts the attacker's own transaction; the function remains permissionless and callable with a short array, so no balance is 'permanently stuck'."
+ },
+ {
+  "id": "dvd-0080",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "src/naive-receiver/NaiveReceiverPool.sol:43-64",
+  "justification": "totalDeposits is decremented at line 51 and restored with the fee at line 59, and every nested flashLoan must still repay via weth.transferFrom (line 58) and is bounded by the pool's actual WETH balance; under 0.8.25 checked arithmetic an over-large decrement reverts. No path leaves totalDeposits corrupted or lets a borrower keep more than it repaid."
+ },
+ {
+  "id": "dvd-0129",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "medium",
+  "evidence": "src/DamnValuableStaking.sol:57-61, src/DamnValuableStaking.sol:32-40, src/DamnValuableStaking.sol:91-93",
+  "justification": "The code defect is real — transferFrom checkpoints msg.sender and recipient but never `sender`, so the from-address's balance drops without a reward checkpoint — but the claimed impact is inverted: the recipient IS checkpointed before receiving, so no one can inflate their own accrual; the only effect is that the from-address forfeits rewards (under-payment, not theft). Allowance is still enforced by solmate's transferFrom, so the scanner's arbitrary-send framing is also wrong."
+ },
+ {
+  "id": "dvd-0031",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": null,
+  "confidence": "medium",
+  "evidence": "src/wallet-mining/AuthorizerUpgradeable.sol:6, src/wallet-mining/AuthorizerUpgradeable.sol:11-21, src/wallet-mining/TransparentProxy.sol:13, src/wallet-mining/TransparentProxy.sol:19-22, src/wallet-mining/AuthorizerFactory.sol:13-21",
+  "justification": "The init guard genuinely fails on the proxy: neither the inline `needsInit = 1` nor the constructor's `needsInit = 0` applies to proxy storage, and the deployed TransparentProxy keeps its own `upgrader` address in slot 0 (restored non-zero by AuthorizerFactory's setUpgrader), so `require(needsInit != 0)` passes and any caller can re-invoke init() to _rely arbitrary wards, fully subverting can(). The described outcome is exploitable; only the stated reason ('defaults to non-zero', a nonexistent `initializer` modifier) is wrong."
+ },
+ {
+  "id": "dvd-0117",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "src/withdrawal/L1Gateway.sol:29-32, src/withdrawal/L1Gateway.sol:34-54",
+  "justification": "An owner-settable withdrawal root is the gateway's intended design and abuse requires prior owner-key compromise, so this is an admin-key/governance note. The file's documented weakness is the operator bypass and replay handling in finalizeWithdrawal (lines 47-56), a different mechanism."
+ },
+ {
+  "id": "dvd-0010",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": null,
+  "confidence": "medium",
+  "evidence": "src/puppet-v2/UniswapV2Library.sol:38-47, src/puppet-v2/UniswapV2Library.sol:49-54, src/puppet-v2/PuppetV2Pool.sol:50-61",
+  "justification": "The spot-reserve read is in fact consumed for collateral valuation in this repository: PuppetV2Pool._getOracleQuote calls UniswapV2Library.getReserves + quote() to size the WETH deposit required to borrow, which is trivially manipulable with a large swap/flash loan and lets an attacker borrow the pool dry. The scenario's reference to getAmountsOut/getAmountsIn is inaccurate (no in-repo caller), but the named weakness holds via quote()."
+ },
+ {
+  "id": "dvd-0171",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "high",
+  "evidence": "src/curvy-puppet/CurvyPuppetLending.sol:133-135, src/curvy-puppet/CurvyPuppetLending.sol:111-119, src/curvy-puppet/CurvyPuppetLending.sol:97-109, test/curvy-puppet/CurvyPuppet.t.sol:27",
+  "justification": "_getLPTokenPrice multiplies an oracle price by curvePool.get_virtual_price() with no read-only-reentrancy protection, and curvePool is the real mainnet stETH/ETH pool 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022 whose remove_liquidity ETH transfer lets an attacker re-enter while virtual_price is inflated; nonReentrant does not help because the re-entry is a fresh entry from the pool callback. This is the file's documented oracle_manipulation weakness."
+ },
+ {
+  "id": "dvd-0044",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "src/backdoor/WalletRegistry.sol:59-61, src/backdoor/WalletRegistry.sol:105-121",
+  "justification": "addBeneficiary is the registry's intended owner-only enrolment function; abuse requires owner-key compromise, and each beneficiary is cleared at line 115 after a single payment. The documented access_control weakness for this file is the Safe setup/backdoor path in proxyCreated, not this admin function."
+ },
+ {
+  "id": "dvd-0020",
+  "label": "TRUE_UNDOCUMENTED",
+  "matches_documented": false,
+  "confidence": "medium",
+  "evidence": "src/shards/ShardsNFTMarketplace.sol:116-139, src/shards/ShardsNFTMarketplace.sol:200-216, src/shards/ShardsNFTMarketplace.sol:144-164, src/shards/ShardsNFTMarketplace.sol:95-105",
+  "justification": "purchases[offerId] is a genuine unbounded storage array: every fill() pushes an entry (line 126) with no cap, cancelled entries are never removed, and _closeOffer copies the entire array into memory (line 202) and loops over it. Enough small fills make the stock-clearing fill revert on gas forever, so the offer can never close, the NFT stays locked in the marketplace (redeem requires !isOpen, line 99) and the seller is never paid. Different mechanism from the documented logic_rounding entry."
+ },
+ {
+  "id": "dvd-0030",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "src/wallet-mining/AuthorizerUpgradeable.sol:15-21",
+  "justification": "The loop iterates a caller-supplied array, so an oversized call only exhausts the caller's own gas; the revert leaves needsInit untouched and init can immediately be retried with a small array, so no permanent DoS of the access-control system occurs."
+ },
+ {
+  "id": "dvd-0043",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "medium",
+  "evidence": "src/climber/ClimberVault.sol:5-7, src/climber/ClimberVault.sol:18-20, src/climber/ClimberVault.sol:34-44",
+  "justification": "ClimberVault does lack a __gap, but the `__Ownable_init(msg.sender)` signature shows OpenZeppelin upgradeable v5, where Initializable/OwnableUpgradeable use ERC-7201 namespaced storage and UUPSUpgradeable holds no state — so the described base-contract variable collision overwriting _sweeper cannot occur. A leaf contract's missing gap here is informational only."
+ },
+ {
+  "id": "dvd-0095",
+  "label": "FALSE",
+  "matches_documented": null,
+  "confidence": "medium",
+  "evidence": "src/wallet-mining/AuthorizerFactory.sol:9-21, src/wallet-mining/AuthorizerUpgradeable.sol:5-7",
+  "justification": "AuthorizerUpgradeable inherits from no base contract, so the flagged 'inherits from a base without __gap' pattern is not present; a variable added by a future upgrade would occupy free slot 2, not `upgrader` (slot 0) or the ERC-1967 metadata slots, so the asserted collision path does not exist. The flagged line is a deployment call, not a storage declaration."
+ },
+ {
+  "id": "dvd-0067",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "src/curvy-puppet/CurvyPuppetLending.sol:97-109, src/curvy-puppet/CurvyPuppetLending.sol:85-95",
+  "justification": "The claim's ordering is wrong: `delete positions[target]` is at line 105, before both _pullAssets (107) and the collateral transfer (108), so no post-external-call stale read exists. The health check also reverts when collateralValue >= borrowValue, so the 'stale non-zero collateral with reduced debt' case would revert as HealthyPosition, not liquidate; liquidate and redeem are both nonReentrant."
+ },
+ {
+  "id": "dvd-0066",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "src/curvy-puppet/CurvyPuppetOracle.sol:33-37, src/curvy-puppet/CurvyPuppetOracle.sol:24-31",
+  "justification": "An owner-published price feed is the contract's entire purpose and abuse presupposes owner-key theft. The concrete scenario is also impossible: setPrice rejects value == 0 (line 34) and getPrice rejects zero/stale prices (lines 27-28), and no ClimberVault consumes this oracle."
+ },
+ {
+  "id": "dvd-0011",
+  "label": "FALSE",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "src/DamnValuableStaking.sol:63-71, src/DamnValuableStaking.sol:10",
+  "justification": "withdraw() is a staker unstaking their own position: `_burn(msg.sender, amount)` (solmate ERC20, checked arithmetic under 0.8.25) reverts for any caller without that stDVT balance, so the claimed 'anyone can call withdraw(1e18) and drain the pool' is untrue. The function is access-controlled by the caller's own balance; no modifier is required."
+ },
+ {
+  "id": "dvd-0004",
+  "label": "FALSE",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "src/climber/ClimberVault.sol:29-32, src/climber/ClimberVault.sol:34-44",
+  "justification": "The claim's premise is contradicted by the code: the implementation's constructor is `constructor() { _disableInitializers(); }` at lines 30-32, so initialize() cannot be called on the implementation and the described hijack is impossible."
+ },
+ {
+  "id": "dvd-0131",
+  "label": "FALSE",
+  "matches_documented": null,
+  "confidence": "medium",
+  "evidence": "src/wallet-mining/TransparentProxy.sol:12-17, src/wallet-mining/TransparentProxy.sol:28-40",
+  "justification": "TransparentProxy extends ERC1967Proxy, not UUPSUpgradeable, and a proxy keeps its implementation pointer in the ERC-1967 slot — there is no rule that a proxy must reserve a __gap, and the claimed overwrite of 'proxy-critical data' by a future implementation variable is not how the layout works. The proposed fix would also not address the contract's real slot-0 collision between `upgrader` and the implementation's `needsInit`."
+ },
+ {
+  "id": "dvd-0041",
+  "label": "FALSE",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "src/DamnValuableStaking.sol:51-55, src/DamnValuableStaking.sol:32-40",
+  "justification": "`super.transfer` is solmate ERC20 bookkeeping on the staking token itself — it performs no external call and has no hook — so the asserted 'malicious token transfer hook re-enters withdraw/claim' window does not exist. Checkpointing both parties before the balance change is also the correct ordering, not a defect."
+ },
+ {
+  "id": "dvd-0056",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "src/curvy-puppet/CurvyPuppetOracle.sol:7, src/curvy-puppet/CurvyPuppetOracle.sol:20-22, src/curvy-puppet/CurvyPuppetOracle.sol:33-37",
+  "justification": "Owner-only price publishing is the oracle's designed function (solady Ownable, owner set in the constructor); the finding reduces to 'a compromised owner key is bad', an admin-key/governance hardening note with no attacker-reachable weakness in the code."
+ },
+ {
+  "id": "dvd-0037",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "medium",
+  "evidence": "src/the-rewarder/TheRewarderDistributor.sol:71-78",
+  "justification": "The push-transfer-in-a-loop pattern is really there, but clean() is permissionless and the token list is chosen per call, so a reverting token is trivially excluded from the next call; no legitimate balance becomes unrecoverable and there is no lasting denial of service."
+ },
+ {
+  "id": "dvd-0028",
+  "label": "TRUE_DOCUMENTED",
+  "matches_documented": true,
+  "confidence": "medium",
+  "evidence": "src/puppet-v3/PuppetV3Pool.sol:16, src/puppet-v3/PuppetV3Pool.sol:38-69, test/puppet-v3/PuppetV3.t.sol:129",
+  "justification": "The pool prices collateral off a 10-minute Uniswap V3 TWAP, which is short enough that one large swap plus a brief wait skews the arithmetic mean tick and makes calculateDepositOfWETHRequired collapse, letting an attacker borrow the pool's entire token balance — exactly the documented oracle_manipulation weakness (the challenge's own solve window is under 115 seconds). Caveat: the manipulation is not atomically flash-loanable as the scenario states, since the TWAP needs elapsed time."
+ },
+ {
+  "id": "dvd-0088",
+  "label": "OVERSTATED",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "src/shards/ShardsNFTMarketplace.sol:95-105, src/shards/ShardsNFTMarketplace.sol:200-216",
+  "justification": "redeem() has no reentrancy guard, but ERC721 safeTransferFrom moves ownership before invoking onERC721Received, so a re-entrant redeem reverts at `nft.ownerOf(nftId) != address(this)` (line 96); the offer is also deleted at line 101, so fill/_closeOffer/_mint cannot be re-triggered for it. The claimed double-mint or NFT theft is blocked by existing checks."
+ },
+ {
+  "id": "dvd-0033",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "src/DamnValuableNFT.sol:12-25, src/free-rider/FreeRiderNFTMarketplace.sol:29-39",
+  "justification": "Owner-controlled minting rights are the contract's design and abuse requires owner-key compromise. The analysis also misdescribes the framework: this is solady OwnableRoles (grantRoles/_ROLE_0 is just role bit 0), not OpenZeppelin AccessControl with a default admin role, and in the free-rider deployment ownership is renounced at construction."
+ },
+ {
+  "id": "dvd-0107",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "medium",
+  "evidence": "src/the-rewarder/TheRewarderDistributor.sol:55-69, src/the-rewarder/TheRewarderDistributor.sol:81-129",
+  "justification": "SafeTransferLib.safeTransferFrom is a plain ERC20 pull with no onERC721Received/ERC777 callback, so the flagged safe-mint reentrancy pattern is not at this location; the analysis itself concedes the StillDistributing check (line 58) blocks the re-entry it first proposes. The residual story only works for a token whose transfer semantics the attacker already controls, and reaching real assets still requires a valid Merkle proof against that token's own root (line 112-114)."
+ },
+ {
+  "id": "dvd-0006",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "src/naive-receiver/Multicall.sol:9-15",
+  "justification": "The loop iterates a caller-supplied calldata array, so gas exhaustion is confined to the attacker's own transaction; multicall remains callable with normal batches and no exit path is blocked. The genuine defect in this contract is delegatecall combined with the pool's trusted-forwarder _msgSender() suffix parsing, which the claim does not mention."
+ },
+ {
+  "id": "dvd-0002",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "medium",
+  "evidence": "src/climber/ClimberVault.sol:34-44, src/climber/ClimberVault.sol:47-59, src/climber/ClimberVault.sol:83",
+  "justification": "withdraw() does carry onlyOwner, contradicting the scanner message, and the analysis then reframes the finding as a design complaint: ownership is deliberately transferred to the ClimberTimelock at line 40, which can still schedule and execute withdraw. No attacker exists in the scenario and no funds become inaccessible, so this is informational at best."
+ },
+ {
+  "id": "dvd-0015",
+  "label": "FALSE",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "src/shards/ShardsFeeVault.sol:34, src/shards/ShardsFeeVault.sol:13",
+  "justification": "The flagged weakness does not exist: withdraw is declared `external onlyOwner` (solady Ownable), so the 'privileged function without an access-control modifier' pattern is not present at this location — the analysis itself concludes it is a scanner false positive and offers no attack."
+ },
+ {
+  "id": "dvd-0102",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "src/withdrawal/L1Forwarder.sol:33-35, src/withdrawal/L1Forwarder.sol:46-50",
+  "justification": "setL2Handler is an owner-only configuration setter whose abuse requires owner-key compromise; l2Handler is merely compared against gateway.xSender() (line 46) rather than being delegated proof validation as the scenario claims. Admin-key hardening note, not an exploitable flaw."
+ },
+ {
+  "id": "dvd-0007",
+  "label": "OVERSTATED",
+  "matches_documented": null,
+  "confidence": "medium",
+  "evidence": "src/abi-smuggling/AuthorizedExecutor.sol:25-39",
+  "justification": "The loop is over a caller-supplied array, so an oversized call only burns the caller's own gas and the revert leaves `initialized` false (line 36 is never reached), meaning setPermissions can simply be retried with a smaller array — the claimed permanent bricking of the initialization path does not follow. The genuine undocumented issue here is that setPermissions is unauthenticated and first-caller-wins, which the claim does not describe."
+ },
+ {
+  "id": "dvd-0143",
+  "label": "FALSE",
+  "matches_documented": false,
+  "confidence": "high",
+  "evidence": "src/naive-receiver/NaiveReceiverPool.sol:26-31, src/naive-receiver/NaiveReceiverPool.sol:75-84, src/naive-receiver/Multicall.sol:9",
+  "justification": "A constructor executes exactly once at deployment and cannot be re-entered through upgradeToAndCall, and multicall is not payable so msg.value is always zero inside the delegatecall loop — the msg.value-reuse pattern the rule targets is absent. _deposit credits only ETH actually wrapped into WETH (line 80), so no double-counting of the constructor deposit is possible."
+ },
+ {
+  "id": "dvd-0077",
+  "label": "FALSE",
+  "matches_documented": null,
+  "confidence": "high",
+  "evidence": "src/naive-receiver/FlashLoanReceiver.sol:15-40, src/naive-receiver/NaiveReceiverPool.sol:57-59",
+  "justification": "Only the receiver contract itself can set its own WETH allowance, so no third party can 'front-run' this approve with a competing one, and the spender is the fixed pool address which consumes exactly amount+fee in the same transaction (leaving the allowance at zero). The approve/transferFrom race requires an adversarial spender; the described WETH.transferFrom(pool, attacker, ...) is not a thing this allowance enables."
+ }
+]

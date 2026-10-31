@@ -1,0 +1,23 @@
+{
+  "_comment": "DVD v4 ground truth — canonical vulnerable contract + core vuln category per challenge. Recall is measured at (challenge, vulnerable-contract) granularity: a scan 'catches' a challenge if any shipped finding flags the listed contract. Standard SAST-on-DVD convention.",
+  "challenges": [
+    {"challenge": "unstoppable",   "contract": "src/unstoppable/UnstoppableVault.sol",            "category": "denial_of_service"},
+    {"challenge": "naive-receiver","contract": "src/naive-receiver/NaiveReceiverPool.sol",         "category": "access_control"},
+    {"challenge": "truster",       "contract": "src/truster/TrusterLenderPool.sol",                "category": "arbitrary_call"},
+    {"challenge": "side-entrance", "contract": "src/side-entrance/SideEntranceLenderPool.sol",      "category": "reentrancy"},
+    {"challenge": "the-rewarder",  "contract": "src/the-rewarder/TheRewarderDistributor.sol",       "category": "access_control"},
+    {"challenge": "selfie",        "contract": "src/selfie/SelfiePool.sol",                          "category": "governance_flashloan"},
+    {"challenge": "compromised",   "contract": "src/compromised/Exchange.sol",                       "category": "oracle_manipulation"},
+    {"challenge": "puppet",        "contract": "src/puppet/PuppetPool.sol",                          "category": "oracle_manipulation"},
+    {"challenge": "puppet-v2",     "contract": "src/puppet-v2/PuppetV2Pool.sol",                     "category": "oracle_manipulation"},
+    {"challenge": "puppet-v3",     "contract": "src/puppet-v3/PuppetV3Pool.sol",                     "category": "oracle_manipulation"},
+    {"challenge": "free-rider",    "contract": "src/free-rider/FreeRiderNFTMarketplace.sol",         "category": "logic_price"},
+    {"challenge": "backdoor",      "contract": "src/backdoor/WalletRegistry.sol",                    "category": "access_control"},
+    {"challenge": "climber",       "contract": "src/climber/ClimberTimelock.sol",                    "category": "access_control_upgrade"},
+    {"challenge": "wallet-mining", "contract": "src/wallet-mining/WalletDeployer.sol",               "category": "access_control"},
+    {"challenge": "abi-smuggling", "contract": "src/abi-smuggling/SelfAuthorizedVault.sol",          "category": "access_control_calldata"},
+    {"challenge": "shards",        "contract": "src/shards/ShardsNFTMarketplace.sol",                "category": "logic_rounding"},
+    {"challenge": "curvy-puppet",  "contract": "src/curvy-puppet/CurvyPuppetLending.sol",            "category": "oracle_manipulation"},
+    {"challenge": "withdrawal",    "contract": "src/withdrawal/L1Gateway.sol",                       "category": "message_replay"}
+  ]
+}

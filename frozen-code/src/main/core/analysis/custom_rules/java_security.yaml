@@ -1,0 +1,58 @@
+rules:
+  - id: java-runtime-exec
+    message: >-
+      Runtime.exec / ProcessBuilder with a built command string. User input
+      here is OS command injection. Use a fixed argv array, no shell.
+    severity: ERROR
+    languages: [java]
+    metadata: {cwe: "CWE-78", category: security}
+    pattern-either:
+      - pattern: Runtime.getRuntime().exec($X)
+      - pattern: new ProcessBuilder($X)
+
+  - id: java-sql-concat
+    message: >-
+      SQL built by string concatenation passed to Statement. SQL injection —
+      use PreparedStatement with bound parameters.
+    severity: ERROR
+    languages: [java]
+    metadata: {cwe: "CWE-89", category: security}
+    pattern-either:
+      - pattern: $STMT.executeQuery("..." + $X)
+      - pattern: $STMT.execute("..." + $X)
+      - pattern: $STMT.executeUpdate("..." + $X)
+
+  - id: java-insecure-deserialization
+    message: >-
+      ObjectInputStream.readObject on untrusted bytes — insecure
+      deserialization leading to RCE. Avoid native serialization; use a
+      whitelist ObjectInputFilter or a safe data format.
+    severity: ERROR
+    languages: [java]
+    metadata: {cwe: "CWE-502", category: security}
+    pattern-either:
+      - pattern: new ObjectInputStream(...).readObject()
+      - pattern: $OIS.readObject()
+
+  - id: java-xxe
+    message: >-
+      XML factory created without disabling DTDs/external entities — XXE.
+      Set disallow-doctype-decl and disable external-general/parameter-entities.
+    severity: ERROR
+    languages: [java]
+    metadata: {cwe: "CWE-611", category: security}
+    pattern-either:
+      - pattern: DocumentBuilderFactory.newInstance()
+      - pattern: SAXParserFactory.newInstance()
+      - pattern: XMLInputFactory.newInstance()
+
+  - id: java-ssrf
+    message: >-
+      URL opened from a value built with input (SSRF). Validate against an
+      allow-list; block internal/metadata addresses.
+    severity: WARNING
+    languages: [java]
+    metadata: {cwe: "CWE-918", category: security}
+    pattern-either:
+      - pattern: new URL($X + $Y).openConnection()
+      - pattern: new URL($X + $Y).openStream()

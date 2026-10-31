@@ -1,0 +1,63 @@
+rules:
+  - id: php-command-exec
+    message: >-
+      Shell execution sink (system/exec/shell_exec/passthru/proc_open).
+      User input gives OS command injection. Use escapeshellarg or avoid the
+      shell entirely.
+    severity: ERROR
+    languages: [php]
+    metadata: {cwe: "CWE-78", category: security}
+    pattern-either:
+      - pattern: system(...)
+      - pattern: exec(...)
+      - pattern: shell_exec(...)
+      - pattern: passthru(...)
+      - pattern: proc_open(...)
+
+  - id: php-eval
+    message: >-
+      eval()/assert() on a value — arbitrary PHP execution if user-controlled.
+      Remove eval; use an explicit dispatch.
+    severity: ERROR
+    languages: [php]
+    metadata: {cwe: "CWE-95", category: security}
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: assert($X)
+
+  - id: php-sql-concat
+    message: >-
+      SQL built by concatenation / interpolation passed to a query function.
+      SQL injection — use prepared statements (PDO/mysqli bound params).
+    severity: ERROR
+    languages: [php]
+    metadata: {cwe: "CWE-89", category: security}
+    pattern-either:
+      - pattern: mysqli_query($CONN, "..." . $X)
+      - pattern: $CONN->query("..." . $X)
+      - pattern: mysql_query("..." . $X)
+
+  - id: php-file-inclusion
+    message: >-
+      include/require with a value built from input — local/remote file
+      inclusion (LFI/RFI) leading to code execution. Use a fixed allow-list.
+    severity: ERROR
+    languages: [php]
+    metadata: {cwe: "CWE-98", category: security}
+    pattern-either:
+      - pattern: include($_GET[...])
+      - pattern: include($_POST[...])
+      - pattern: require($_GET[...])
+      - pattern: include($X . $Y)
+
+  - id: php-unserialize-input
+    message: >-
+      unserialize() on request data — object injection / insecure
+      deserialization. Use json_decode for untrusted data.
+    severity: ERROR
+    languages: [php]
+    metadata: {cwe: "CWE-502", category: security}
+    pattern-either:
+      - pattern: unserialize($_GET[...])
+      - pattern: unserialize($_POST[...])
+      - pattern: unserialize($_COOKIE[...])
